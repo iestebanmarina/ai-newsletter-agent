@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ subject }}</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f7;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #333;
+    line-height: 1.6;
+  }
+  .wrapper {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #fff;
+    padding: 40px 30px;
+    text-align: center;
+    border-radius: 12px 12px 0 0;
+  }
+  .header h1 {
+    margin: 0 0 8px 0;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .header .date {
+    font-size: 14px;
+    color: #a0aec0;
+  }
+  .content {
+    background: #ffffff;
+    padding: 30px;
+  }
+  .editorial {
+    background: #f7fafc;
+    border-left: 4px solid #0f3460;
+    padding: 20px 24px;
+    margin-bottom: 30px;
+    border-radius: 0 8px 8px 0;
+    font-size: 15px;
+    color: #4a5568;
+  }
+  .section {
+    margin-bottom: 32px;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a2e;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+  }
+  .article-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+  .article-card:hover {
+    border-color: #0f3460;
+  }
+  .article-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 6px 0;
+  }
+  .article-title a {
+    color: #1a1a2e;
+    text-decoration: none;
+  }
+  .article-title a:hover {
+    color: #0f3460;
+    text-decoration: underline;
+  }
+  .article-meta {
+    font-size: 12px;
+    color: #a0aec0;
+    margin-bottom: 8px;
+  }
+  .article-summary {
+    font-size: 14px;
+    color: #4a5568;
+    margin: 0;
+  }
+  .score-badge {
+    display: inline-block;
+    background: #edf2f7;
+    color: #2d3748;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 6px;
+  }
+  .footer {
+    background: #1a1a2e;
+    color: #a0aec0;
+    padding: 24px 30px;
+    text-align: center;
+    font-size: 12px;
+    border-radius: 0 0 12px 12px;
+  }
+  .footer a {
+    color: #63b3ed;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <h1>AI Weekly Digest</h1>
+    <div class="date">{{ date }}</div>
+  </div>
+
+  <div class="content">
+    {% if intro %}
+    <div class="editorial">
+      {{ intro }}
+    </div>
+    {% endif %}
+
+    {% for section in sections %}
+    <div class="section">
+      <div class="section-title">{{ section.display_name }}</div>
+      {% for article in section.articles %}
+      <div class="article-card">
+        <h3 class="article-title">
+          <a href="{{ article.url }}">{{ article.title }}</a>
+          <span class="score-badge">{{ "%.0f"|format(article.relevance_score * 100) }}%</span>
+        </h3>
+        <div class="article-meta">{{ article.source }}</div>
+        <p class="article-summary">{{ article.summary }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="footer">
+    <p>Curated by AI Newsletter Agent &bull; Powered by Claude &bull; Created with ❤️ by Iñigo Esteban</p>
+    <p>You're receiving this because you subscribed. <a href="#">Unsubscribe</a></p>
+  </div>
+</div>
+</body>
+</html>

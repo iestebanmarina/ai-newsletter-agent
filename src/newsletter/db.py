@@ -28,6 +28,13 @@ def init_db(db_path: str) -> None:
             sent INTEGER DEFAULT 0
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS subscribers (
+            email TEXT PRIMARY KEY,
+            subscribed_at TEXT NOT NULL,
+            active INTEGER DEFAULT 1
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -129,6 +136,56 @@ def mark_as_sent(db_path: str, urls: list[str]) -> None:
     )
     conn.commit()
     conn.close()
+
+
+def add_subscriber(db_path: str, email: str) -> bool:
+    """Add a subscriber. Reactivates if previously unsubscribed. Returns True if new or reactivated."""
+    conn = get_connection(db_path)
+    try:
+        now = datetime.utcnow().isoformat()
+        cursor = conn.execute("SELECT active FROM subscribers WHERE email = ?", (email,))
+        row = cursor.fetchone()
+        if row is None:
+            conn.execute(
+                "INSERT INTO subscribers (email, subscribed_at, active) VALUES (?, ?, 1)",
+                (email, now),
+            )
+            conn.commit()
+            return True
+        elif row["active"] == 0:
+            conn.execute(
+                "UPDATE subscribers SET active = 1, subscribed_at = ? WHERE email = ?",
+                (now, email),
+            )
+            conn.commit()
+            return True
+        return False
+    finally:
+        conn.close()
+
+
+def get_active_subscribers(db_path: str) -> list[str]:
+    """Get all active subscriber emails."""
+    conn = get_connection(db_path)
+    rows = conn.execute(
+        "SELECT email FROM subscribers WHERE active = 1"
+    ).fetchall()
+    conn.close()
+    return [row["email"] for row in rows]
+
+
+def remove_subscriber(db_path: str, email: str) -> bool:
+    """Mark a subscriber as inactive. Returns True if found and deactivated."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            "UPDATE subscribers SET active = 0 WHERE email = ? AND active = 1",
+            (email,),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
 
 
 def _row_to_article(row: sqlite3.Row) -> Article:

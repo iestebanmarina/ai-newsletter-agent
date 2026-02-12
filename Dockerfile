@@ -35,4 +35,6 @@ COPY --from=builder /app /app
 
 ENV TZ=UTC
 
-CMD ["uv", "run", "newsletter", "--schedule"]
+EXPOSE 8080
+
+CMD ["uv", "run", "newsletter", "--serve"]

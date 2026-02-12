@@ -1,6 +1,8 @@
 import argparse
 import logging
+import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from .collectors.scraper import scrape_article_content
 from .config import settings
 from .curator import curate_articles
 from .db import (
+    get_active_subscribers,
     get_articles_for_newsletter,
     get_uncurated_articles,
     init_db,
@@ -131,17 +134,31 @@ def run_pipeline(dry_run: bool = False) -> None:
         logger.info("=== Dry run: skipping email send ===")
     else:
         logger.info("=== Step 6: Sending newsletter ===")
+        # Merge subscribers from env var and database (union, no duplicates)
+        env_subscribers = set(settings.subscriber_list)
+        db_subscribers = set(get_active_subscribers(db_path))
+        all_subscribers = sorted(env_subscribers | db_subscribers)
+        logger.info(f"Sending to {len(all_subscribers)} subscribers ({len(env_subscribers)} env, {len(db_subscribers)} db)")
+
         success = send_newsletter(
             html_content=newsletter.html_content,
             from_email=settings.newsletter_from_email,
-            subscribers=settings.subscriber_list,
+            subscribers=all_subscribers,
             api_key=settings.resend_api_key,
+            base_url=settings.base_url,
         )
         if success:
             mark_as_sent(db_path, [a.url for a in top_articles])
             logger.info("Newsletter sent successfully!")
         else:
             logger.error("Newsletter sending failed or partially failed")
+
+
+def start_scheduler_thread() -> threading.Thread:
+    """Launch the scheduler in a daemon thread. Returns the thread."""
+    t = threading.Thread(target=run_scheduler, daemon=True)
+    t.start()
+    return t
 
 
 def run_scheduler() -> None:
@@ -188,10 +205,22 @@ def cli() -> None:
         action="store_true",
         help="Run on a weekly schedule instead of once",
     )
+    parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Start web server with landing page + scheduler",
+    )
 
     args = parser.parse_args()
 
-    if args.schedule:
+    if args.serve:
+        import uvicorn
+        from .web import app
+
+        port = int(os.environ.get("PORT", "8080"))
+        logger.info(f"Starting web server on port {port}")
+        uvicorn.run(app, host="0.0.0.0", port=port)
+    elif args.schedule:
         run_scheduler()
     else:
         run_pipeline(dry_run=args.dry_run)

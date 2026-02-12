@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # DB
     database_path: str = "newsletter.db"
 
+    # Web
+    base_url: str = "http://localhost:8080"
+
     # Pipeline
     max_articles_per_newsletter: int = 20
 

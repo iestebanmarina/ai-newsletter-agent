@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knowledge in Chain - AI Newsletter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #0d0d1a;
+    color: #e2e8f0;
+    line-height: 1.6;
+  }
+
+  /* Hero */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 20px;
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 30% 40%, rgba(15, 52, 96, 0.4) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(26, 26, 46, 0.3) 0%, transparent 50%);
+    animation: drift 20s ease-in-out infinite;
+  }
+
+  @keyframes drift {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-2%, 2%); }
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 640px;
+    width: 100%;
+  }
+
+  .logo {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    color: #63b3ed;
+    margin-bottom: 24px;
+    font-weight: 600;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+    color: #ffffff;
+  }
+
+  .hero h1 span {
+    background: linear-gradient(135deg, #63b3ed, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 1.15rem;
+    color: #a0aec0;
+    margin-bottom: 40px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Form */
+  .subscribe-form {
+    display: flex;
+    gap: 12px;
+    max-width: 460px;
+    margin: 0 auto 16px;
+  }
+
+  .subscribe-form input[type="email"] {
+    flex: 1;
+    padding: 14px 20px;
+    border: 2px solid rgba(99, 179, 237, 0.3);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #ffffff;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .subscribe-form input[type="email"]::placeholder {
+    color: #718096;
+  }
+
+  .subscribe-form input[type="email"]:focus {
+    border-color: #63b3ed;
+  }
+
+  .subscribe-form button {
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #63b3ed, #4299e1);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+  }
+
+  .subscribe-form button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4);
+  }
+
+  .subscribe-form button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .form-message {
+    height: 24px;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .form-message.success { color: #68d391; }
+  .form-message.error { color: #fc8181; }
+
+  .privacy-note {
+    font-size: 13px;
+    color: #4a5568;
+    margin-top: 8px;
+  }
+
+  /* Features */
+  .features {
+    padding: 80px 20px;
+    background: #0d0d1a;
+  }
+
+  .features-grid {
+    max-width: 900px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 32px;
+  }
+
+  .feature-card {
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(99, 179, 237, 0.1);
+    border-radius: 12px;
+    padding: 32px 28px;
+  }
+
+  .feature-icon {
+    font-size: 32px;
+    margin-bottom: 16px;
+  }
+
+  .feature-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: #a0aec0;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 40px 20px;
+    text-align: center;
+    color: #4a5568;
+    font-size: 13px;
+    border-top: 1px solid rgba(99, 179, 237, 0.1);
+  }
+
+  .footer a {
+    color: #63b3ed;
+    text-decoration: none;
+  }
+
+  /* Responsive */
+  @media (max-width: 520px) {
+    .subscribe-form {
+      flex-direction: column;
+    }
+    .subscribe-form button {
+      width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-content">
+    <div class="logo">Knowledge in Chain</div>
+    <h1>Your weekly dose of <span>AI intelligence</span></h1>
+    <p>Curated AI news, research breakthroughs, and industry insights delivered to your inbox every Monday. Powered by AI, crafted for humans.</p>
+
+    <form class="subscribe-form" id="subscribeForm">
+      <input type="email" id="emailInput" placeholder="your@email.com" required autocomplete="email">
+      <button type="submit" id="submitBtn">Subscribe</button>
+    </form>
+    <div class="form-message" id="formMessage"></div>
+    <div class="privacy-note">Free, weekly, no spam. Unsubscribe anytime.</div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">&#x1F50D;</div>
+      <h3>AI-Curated Content</h3>
+      <p>Claude analyzes hundreds of sources and picks the most relevant stories so you don't have to.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#x1F4CA;</div>
+      <h3>Research & Reports</h3>
+      <p>Stay up to date with the latest papers, benchmarks, and technical breakthroughs from top labs.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#x1F4AC;</div>
+      <h3>Community Pulse</h3>
+      <p>Highlights from Reddit, forums, and developer communities on what practitioners are actually building.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <p>Knowledge in Chain &bull; Created by I&ntilde;igo Esteban &bull; Powered by Claude</p>
+</footer>
+
+<script>
+(function() {
+  const form = document.getElementById('subscribeForm');
+  const input = document.getElementById('emailInput');
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('formMessage');
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const email = input.value.trim();
+    if (!email) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Subscribing...';
+    msg.textContent = '';
+    msg.className = 'form-message';
+
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        msg.textContent = data.message;
+        msg.className = 'form-message success';
+        input.value = '';
+      } else {
+        msg.textContent = data.message || 'Something went wrong. Please try again.';
+        msg.className = 'form-message error';
+      }
+    } catch (err) {
+      msg.textContent = 'Network error. Please try again.';
+      msg.className = 'form-message error';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Subscribe';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

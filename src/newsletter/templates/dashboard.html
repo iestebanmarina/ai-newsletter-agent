@@ -4,13 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard - Knowledge in Chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #0d0d1a;
-    color: #e2e8f0;
+    font-family: 'JetBrains Mono', 'Share Tech Mono', 'Courier New', monospace;
+    background-color: #000000;
+    background-image: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: #d4d4d4;
     line-height: 1.6;
     min-height: 100vh;
   }
@@ -21,13 +26,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
   }
 
   .login-box {
-    background: rgba(13, 13, 26, 0.8);
-    border: 1px solid rgba(99, 179, 237, 0.2);
-    border-radius: 16px;
+    background: #0a0a0a;
+    border: 1px solid #292929;
+    border-radius: 8px;
     padding: 48px 40px;
     max-width: 400px;
     width: 100%;
@@ -35,55 +39,63 @@
   }
 
   .login-box h1 {
-    font-size: 24px;
-    margin-bottom: 8px;
-    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #fafafa;
   }
 
   .login-box .subtitle {
-    font-size: 14px;
-    color: #a0aec0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: #f59e0b;
     margin-bottom: 32px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
   }
 
   .login-box input[type="password"] {
     width: 100%;
-    padding: 14px 20px;
-    border: 2px solid rgba(99, 179, 237, 0.3);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.07);
-    color: #fff;
-    font-size: 16px;
+    padding: 14px 18px;
+    border: 1px solid #292929;
+    border-radius: 6px;
+    background: #000000;
+    color: #fafafa;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
     outline: none;
     margin-bottom: 16px;
     transition: border-color 0.2s;
   }
 
   .login-box input[type="password"]:focus {
-    border-color: #63b3ed;
+    border-color: #f59e0b;
   }
 
   .login-box button {
     width: 100%;
     padding: 14px;
-    background: linear-gradient(135deg, #63b3ed, #4299e1);
-    color: #fff;
-    font-size: 16px;
+    background: #f59e0b;
+    color: #000000;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
     font-weight: 700;
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: background 0.2s, transform 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   .login-box button:hover {
+    background: #d97706;
     transform: translateY(-1px);
-    box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4);
   }
 
   .login-error {
-    color: #fc8181;
-    font-size: 14px;
+    color: #f87171;
+    font-size: 13px;
     margin-bottom: 16px;
   }
 
@@ -104,110 +116,125 @@
   }
 
   .dash-header h1 {
-    font-size: 24px;
-    font-weight: 800;
-    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fafafa;
+  }
+
+  .dash-header h1 span {
+    color: #f59e0b;
   }
 
   .dash-header .actions {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
   }
 
   .btn {
-    padding: 10px 20px;
+    padding: 8px 16px;
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: background 0.2s, transform 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-decoration: none;
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, #63b3ed, #4299e1);
-    color: #fff;
+    background: #f59e0b;
+    color: #000000;
   }
 
   .btn-primary:hover {
+    background: #d97706;
     transform: translateY(-1px);
-    box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4);
   }
 
   .btn-primary:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
   }
 
   .btn-outline {
     background: transparent;
-    color: #63b3ed;
-    border: 1px solid rgba(99, 179, 237, 0.3);
+    color: #737373;
+    border: 1px solid #292929;
   }
 
   .btn-outline:hover {
-    background: rgba(99, 179, 237, 0.1);
+    border-color: #404040;
+    color: #d4d4d4;
   }
 
   .refresh-note {
-    font-size: 12px;
-    color: #4a5568;
+    font-size: 11px;
+    color: #404040;
   }
 
   /* KPI cards */
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
+    gap: 16px;
     margin-bottom: 32px;
   }
 
   .kpi-card {
-    background: linear-gradient(145deg, #1a1a2e, #16213e);
-    border: 1px solid rgba(99, 179, 237, 0.1);
-    border-radius: 12px;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
     padding: 24px;
+    transition: border-color 0.2s;
+  }
+
+  .kpi-card:hover {
+    border-color: #292929;
   }
 
   .kpi-card .label {
-    font-size: 13px;
-    color: #a0aec0;
+    font-size: 11px;
+    color: #525252;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
     margin-bottom: 8px;
   }
 
   .kpi-card .value {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 800;
-    color: #fff;
+    color: #f59e0b;
   }
 
   .kpi-card .sub {
-    font-size: 13px;
-    color: #63b3ed;
+    font-size: 12px;
+    color: #525252;
     margin-top: 4px;
   }
 
   /* Tables */
   .section {
-    margin-bottom: 32px;
+    margin-bottom: 28px;
   }
 
   .section h2 {
-    font-size: 18px;
+    font-size: 13px;
     font-weight: 700;
-    color: #fff;
-    margin-bottom: 16px;
+    color: #737373;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
   }
 
   .table-wrap {
-    background: linear-gradient(145deg, #1a1a2e, #16213e);
-    border: 1px solid rgba(99, 179, 237, 0.1);
-    border-radius: 12px;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
     overflow: hidden;
   }
 
@@ -218,33 +245,38 @@
 
   th {
     text-align: left;
-    padding: 12px 16px;
-    font-size: 12px;
+    padding: 10px 16px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #a0aec0;
-    border-bottom: 1px solid rgba(99, 179, 237, 0.1);
-    background: rgba(0, 0, 0, 0.2);
+    letter-spacing: 1.5px;
+    color: #404040;
+    border-bottom: 1px solid #1a1a1a;
+    background: rgba(0, 0, 0, 0.3);
   }
 
   td {
-    padding: 10px 16px;
-    font-size: 14px;
-    border-bottom: 1px solid rgba(99, 179, 237, 0.05);
+    padding: 9px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid #0f0f0f;
+    color: #a3a3a3;
   }
 
   tr:last-child td {
     border-bottom: none;
   }
 
-  .status-completed { color: #68d391; }
-  .status-running { color: #63b3ed; }
-  .status-failed { color: #fc8181; }
+  tr:hover td {
+    background: rgba(245, 158, 11, 0.02);
+  }
+
+  .status-completed { color: #34d399; }
+  .status-running { color: #f59e0b; }
+  .status-failed { color: #f87171; }
 
   .two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 16px;
   }
 
   @media (max-width: 768px) {
@@ -252,32 +284,34 @@
   }
 
   .note-box {
-    background: linear-gradient(145deg, #1a1a2e, #16213e);
-    border: 1px solid rgba(99, 179, 237, 0.1);
-    border-radius: 12px;
-    padding: 20px 24px;
-    font-size: 13px;
-    color: #a0aec0;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    font-size: 12px;
+    color: #525252;
     margin-bottom: 32px;
   }
 
   .note-box strong {
-    color: #e2e8f0;
+    color: #f59e0b;
   }
 
   .toast {
     position: fixed;
     bottom: 24px;
     right: 24px;
-    background: #1a1a2e;
-    border: 1px solid rgba(99, 179, 237, 0.3);
-    border-radius: 10px;
-    padding: 14px 24px;
-    font-size: 14px;
-    color: #e2e8f0;
+    background: #0a0a0a;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    padding: 12px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #f59e0b;
     display: none;
     z-index: 100;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
   }
 
   .toast.show { display: block; }
@@ -295,7 +329,7 @@
     <p class="login-error">{{ error }}</p>
     {% endif %}
     <form method="POST" action="/dashboard/login">
-      <input type="password" name="password" placeholder="Password" required autofocus>
+      <input type="password" name="password" placeholder="password" required autofocus>
       <button type="submit">Log in</button>
     </form>
   </div>
@@ -305,11 +339,11 @@
 <!-- Dashboard -->
 <div class="dashboard">
   <div class="dash-header">
-    <h1>Knowledge in Chain &mdash; Dashboard</h1>
+    <h1><span>//</span> Knowledge in Chain</h1>
     <div class="actions">
       <span class="refresh-note" id="lastRefresh"></span>
       <button class="btn btn-outline" onclick="loadAll()">Refresh</button>
-      <button class="btn btn-primary" id="triggerBtn" onclick="triggerPipeline()">Trigger Pipeline</button>
+      <button class="btn btn-primary" id="triggerBtn" onclick="triggerPipeline()">Run Pipeline</button>
       <a href="/" class="btn btn-outline">Landing</a>
     </div>
   </div>
@@ -317,17 +351,17 @@
   <!-- KPI Cards -->
   <div class="kpi-grid">
     <div class="kpi-card">
-      <div class="label">Active Subscribers</div>
+      <div class="label">Subscribers</div>
       <div class="value" id="kpiSubscribers">-</div>
       <div class="sub" id="kpiSubNew"></div>
     </div>
     <div class="kpi-card">
-      <div class="label">Total Articles</div>
+      <div class="label">Articles</div>
       <div class="value" id="kpiArticles">-</div>
       <div class="sub" id="kpiArticlesSub"></div>
     </div>
     <div class="kpi-card">
-      <div class="label">Monthly API Cost</div>
+      <div class="label">Monthly Cost</div>
       <div class="value" id="kpiMonthlyCost">-</div>
       <div class="sub" id="kpiTotalCost"></div>
     </div>
@@ -340,14 +374,14 @@
 
   <!-- Note about untracked costs -->
   <div class="note-box">
-    <strong>Note:</strong> Resend (email) and Railway (hosting) costs are not tracked here.
-    Resend free tier: 3,000 emails/month. Railway usage billed separately.
+    <strong>Note:</strong> Resend (email) and Railway (hosting) costs are not tracked.
+    Resend free tier: 3,000 emails/month. Railway billed separately.
   </div>
 
   <!-- Two column tables -->
   <div class="two-col">
     <div class="section">
-      <h2>Articles by Source</h2>
+      <h2>By Source</h2>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Source</th><th>Count</th></tr></thead>
@@ -356,7 +390,7 @@
       </div>
     </div>
     <div class="section">
-      <h2>Articles by Category</h2>
+      <h2>By Category</h2>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Category</th><th>Count</th></tr></thead>
@@ -368,10 +402,10 @@
 
   <!-- Cost per run -->
   <div class="section">
-    <h2>API Cost per Pipeline Run</h2>
+    <h2>API Cost / Run</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Run ID</th><th>Input Tokens</th><th>Output Tokens</th><th>Cost (USD)</th></tr></thead>
+        <thead><tr><th>Run ID</th><th>Input Tok</th><th>Output Tok</th><th>Cost</th></tr></thead>
         <tbody id="tableCostByRun"><tr><td colspan="4">Loading...</td></tr></tbody>
       </table>
     </div>
@@ -461,7 +495,7 @@
     var data = await fetchJson('/api/dashboard/articles');
     if (!data) return;
     $('kpiArticles').textContent = fmt(data.total);
-    $('kpiArticlesSub').textContent = fmt(data.curated) + ' curated, ' + fmt(data.sent) + ' sent';
+    $('kpiArticlesSub').textContent = fmt(data.curated) + ' curated · ' + fmt(data.sent) + ' sent';
 
     var src = '';
     (data.by_source || []).forEach(function(r) {
@@ -535,7 +569,7 @@
     loadCosts();
     loadEmails();
     loadPipelineRuns();
-    $('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    $('lastRefresh').textContent = new Date().toLocaleTimeString();
   };
 
   window.triggerPipeline = async function() {
@@ -550,8 +584,7 @@
       showToast('Error triggering pipeline');
     }
     btn.disabled = false;
-    btn.textContent = 'Trigger Pipeline';
-    // Refresh after a short delay
+    btn.textContent = 'Run Pipeline';
     setTimeout(loadAll, 2000);
   };
 

@@ -4,13 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Knowledge in Chain - AI Newsletter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #0d0d1a;
-    color: #e2e8f0;
+    font-family: 'JetBrains Mono', 'Share Tech Mono', 'Courier New', monospace;
+    background-color: #000000;
+    background-image: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: #d4d4d4;
     line-height: 1.6;
   }
 
@@ -23,26 +28,18 @@
     justify-content: center;
     text-align: center;
     padding: 40px 20px;
-    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
     position: relative;
-    overflow: hidden;
   }
 
   .hero::before {
     content: '';
     position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle at 30% 40%, rgba(15, 52, 96, 0.4) 0%, transparent 50%),
-                radial-gradient(circle at 70% 60%, rgba(26, 26, 46, 0.3) 0%, transparent 50%);
-    animation: drift 20s ease-in-out infinite;
-  }
-
-  @keyframes drift {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(-2%, 2%); }
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at 50% 40%, rgba(245, 158, 11, 0.06) 0%, transparent 60%);
+    pointer-events: none;
   }
 
   .hero-content {
@@ -53,37 +50,37 @@
   }
 
   .logo {
-    font-size: 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
     text-transform: uppercase;
-    letter-spacing: 4px;
-    color: #63b3ed;
-    margin-bottom: 24px;
-    font-weight: 600;
+    letter-spacing: 6px;
+    color: #f59e0b;
+    margin-bottom: 28px;
+    font-weight: 400;
   }
 
   .hero h1 {
-    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-size: clamp(2rem, 5vw, 3.2rem);
     font-weight: 800;
-    line-height: 1.1;
+    line-height: 1.15;
     margin-bottom: 20px;
-    letter-spacing: -1px;
-    color: #ffffff;
+    letter-spacing: -0.5px;
+    color: #fafafa;
   }
 
   .hero h1 span {
-    background: linear-gradient(135deg, #63b3ed, #7c3aed);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #f59e0b;
   }
 
   .hero p {
-    font-size: 1.15rem;
-    color: #a0aec0;
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: #737373;
     margin-bottom: 40px;
-    max-width: 500px;
+    max-width: 480px;
     margin-left: auto;
     margin-right: auto;
+    line-height: 1.7;
   }
 
   /* Form */
@@ -96,68 +93,70 @@
 
   .subscribe-form input[type="email"] {
     flex: 1;
-    padding: 14px 20px;
-    border: 2px solid rgba(99, 179, 237, 0.3);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.07);
-    color: #ffffff;
-    font-size: 16px;
+    padding: 14px 18px;
+    border: 1px solid #292929;
+    border-radius: 6px;
+    background: #0a0a0a;
+    color: #fafafa;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
     outline: none;
     transition: border-color 0.2s;
   }
 
   .subscribe-form input[type="email"]::placeholder {
-    color: #718096;
+    color: #525252;
   }
 
   .subscribe-form input[type="email"]:focus {
-    border-color: #63b3ed;
+    border-color: #f59e0b;
   }
 
   .subscribe-form button {
     padding: 14px 28px;
-    background: linear-gradient(135deg, #63b3ed, #4299e1);
-    color: #ffffff;
-    font-size: 16px;
+    background: #f59e0b;
+    color: #000000;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
     font-weight: 700;
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: background 0.2s, transform 0.15s;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   .subscribe-form button:hover {
+    background: #d97706;
     transform: translateY(-1px);
-    box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4);
   }
 
   .subscribe-form button:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
   }
 
   .form-message {
     height: 24px;
-    font-size: 14px;
+    font-size: 13px;
     text-align: center;
   }
 
-  .form-message.success { color: #68d391; }
-  .form-message.error { color: #fc8181; }
+  .form-message.success { color: #34d399; }
+  .form-message.error { color: #f87171; }
 
   .privacy-note {
-    font-size: 13px;
-    color: #4a5568;
+    font-size: 12px;
+    color: #404040;
     margin-top: 8px;
   }
 
   /* Features */
   .features {
     padding: 80px 20px;
-    background: #0d0d1a;
   }
 
   .features-grid {
@@ -165,45 +164,72 @@
     margin: 0 auto;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 32px;
+    gap: 24px;
   }
 
   .feature-card {
-    background: linear-gradient(145deg, #1a1a2e, #16213e);
-    border: 1px solid rgba(99, 179, 237, 0.1);
-    border-radius: 12px;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
     padding: 32px 28px;
+    transition: border-color 0.2s;
+  }
+
+  .feature-card:hover {
+    border-color: #292929;
   }
 
   .feature-icon {
-    font-size: 32px;
+    font-size: 28px;
     margin-bottom: 16px;
+    filter: grayscale(0.3);
   }
 
   .feature-card h3 {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
-    color: #ffffff;
+    color: #fafafa;
     margin-bottom: 8px;
+    letter-spacing: 0.5px;
   }
 
   .feature-card p {
-    font-size: 14px;
-    color: #a0aec0;
+    font-size: 13px;
+    color: #737373;
+    line-height: 1.7;
+  }
+
+  /* Terminal decoration */
+  .terminal-line {
+    max-width: 900px;
+    margin: 0 auto 48px;
+    padding: 0 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: #404040;
+    text-align: center;
+  }
+
+  .terminal-line span {
+    color: #f59e0b;
   }
 
   /* Footer */
   .footer {
     padding: 40px 20px;
     text-align: center;
-    color: #4a5568;
-    font-size: 13px;
-    border-top: 1px solid rgba(99, 179, 237, 0.1);
+    color: #404040;
+    font-size: 12px;
+    border-top: 1px solid #141414;
   }
 
   .footer a {
-    color: #63b3ed;
+    color: #f59e0b;
     text-decoration: none;
+  }
+
+  .footer a:hover {
+    text-decoration: underline;
   }
 
   /* Responsive */
@@ -234,6 +260,8 @@
   </div>
 </section>
 
+<div class="terminal-line"><span>&gt;</span> scanning 7 sources <span>|</span> curating with claude <span>|</span> delivering mondays</div>
+
 <section class="features">
   <div class="features-grid">
     <div class="feature-card">
@@ -243,7 +271,7 @@
     </div>
     <div class="feature-card">
       <div class="feature-icon">&#x1F4CA;</div>
-      <h3>Research & Reports</h3>
+      <h3>Research &amp; Reports</h3>
       <p>Stay up to date with the latest papers, benchmarks, and technical breakthroughs from top labs.</p>
     </div>
     <div class="feature-card">

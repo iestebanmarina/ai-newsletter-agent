@@ -33,8 +33,6 @@ RUN apt-get update && \
 # Copy virtual environment and source from builder
 COPY --from=builder /app /app
 
-VOLUME /data
-
 ENV TZ=UTC
 
 CMD ["uv", "run", "newsletter", "--schedule"]

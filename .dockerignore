@@ -1,0 +1,10 @@
+.venv/
+.git/
+.env
+*.db
+__pycache__/
+*.pyc
+newsletter_preview.html
+setup_schedule.ps1
+README.md
+.claude/

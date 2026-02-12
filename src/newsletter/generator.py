@@ -6,9 +6,20 @@ from pathlib import Path
 import anthropic
 from jinja2 import Environment, FileSystemLoader
 
+from .db import log_api_usage
 from .models import Article, Category, CATEGORY_DISPLAY, Newsletter, NewsletterSection
 
 logger = logging.getLogger(__name__)
+
+# Module-level pipeline context (set by main.py before calling generate_newsletter)
+_current_db_path: str = ""
+_current_run_id: str = ""
+
+
+def set_pipeline_context(db_path: str, run_id: str) -> None:
+    global _current_db_path, _current_run_id
+    _current_db_path = db_path
+    _current_run_id = run_id
 
 EDITORIAL_SYSTEM_PROMPT = """You are the editor of a weekly AI newsletter called "AI Weekly Digest".
 Write a brief editorial introduction (3-5 sentences) for this week's newsletter.
@@ -116,6 +127,20 @@ def _generate_editorial(
                 }
             ],
         )
+
+        if _current_db_path:
+            try:
+                log_api_usage(
+                    _current_db_path,
+                    pipeline_run_id=_current_run_id,
+                    model=model,
+                    input_tokens=response.usage.input_tokens,
+                    output_tokens=response.usage.output_tokens,
+                    step="editorial",
+                )
+            except Exception:
+                logger.debug("Failed to log API usage", exc_info=True)
+
         return response.content[0].text.strip()
     except Exception:
         logger.exception("Failed to generate editorial intro")

@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import uuid
 from datetime import datetime, timedelta
 
 from .models import Article
@@ -33,6 +34,43 @@ def init_db(db_path: str) -> None:
             email TEXT PRIMARY KEY,
             subscribed_at TEXT NOT NULL,
             active INTEGER DEFAULT 1
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS api_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pipeline_run_id TEXT,
+            model TEXT NOT NULL,
+            input_tokens INTEGER NOT NULL,
+            output_tokens INTEGER NOT NULL,
+            estimated_cost_usd REAL NOT NULL,
+            step TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS email_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pipeline_run_id TEXT,
+            recipient TEXT NOT NULL,
+            status TEXT NOT NULL,
+            error_message TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pipeline_runs (
+            id TEXT PRIMARY KEY,
+            status TEXT NOT NULL DEFAULT 'running',
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            duration_seconds REAL,
+            articles_collected INTEGER DEFAULT 0,
+            articles_curated INTEGER DEFAULT 0,
+            articles_sent INTEGER DEFAULT 0,
+            emails_sent INTEGER DEFAULT 0,
+            emails_failed INTEGER DEFAULT 0,
+            error_message TEXT DEFAULT ''
         )
     """)
     conn.commit()
@@ -186,6 +224,188 @@ def remove_subscriber(db_path: str, email: str) -> bool:
         return cursor.rowcount > 0
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# API usage / cost tracking
+# ---------------------------------------------------------------------------
+
+MODEL_PRICING = {
+    # (input $/M tokens, output $/M tokens)
+    "claude-sonnet-4-5-20250929": (3.00, 15.00),
+    "claude-opus-4-6": (15.00, 75.00),
+    "claude-haiku-4-5-20251001": (0.25, 1.25),
+}
+
+
+def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Estimate USD cost for a Claude API call."""
+    for key, (inp_price, out_price) in MODEL_PRICING.items():
+        if key in model:
+            return (input_tokens * inp_price + output_tokens * out_price) / 1_000_000
+    # Fallback to Sonnet pricing
+    return (input_tokens * 3.00 + output_tokens * 15.00) / 1_000_000
+
+
+def log_api_usage(
+    db_path: str,
+    *,
+    pipeline_run_id: str = "",
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    step: str = "",
+) -> None:
+    cost = estimate_cost(model, input_tokens, output_tokens)
+    conn = get_connection(db_path)
+    conn.execute(
+        """INSERT INTO api_usage
+           (pipeline_run_id, model, input_tokens, output_tokens, estimated_cost_usd, step, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (pipeline_run_id, model, input_tokens, output_tokens, cost, step, datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def log_email_send(
+    db_path: str,
+    *,
+    pipeline_run_id: str = "",
+    recipient: str,
+    status: str,
+    error_message: str = "",
+) -> None:
+    conn = get_connection(db_path)
+    conn.execute(
+        """INSERT INTO email_log
+           (pipeline_run_id, recipient, status, error_message, created_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (pipeline_run_id, recipient, status, error_message, datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Pipeline run tracking
+# ---------------------------------------------------------------------------
+
+def create_pipeline_run(db_path: str) -> str:
+    """Create a new pipeline run record. Returns the run id."""
+    run_id = uuid.uuid4().hex[:12]
+    conn = get_connection(db_path)
+    conn.execute(
+        "INSERT INTO pipeline_runs (id, status, started_at) VALUES (?, 'running', ?)",
+        (run_id, datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return run_id
+
+
+def update_pipeline_run(db_path: str, run_id: str, **kwargs) -> None:
+    """Update fields on a pipeline run. Accepts any column name as kwarg."""
+    if not kwargs:
+        return
+    sets = ", ".join(f"{k} = ?" for k in kwargs)
+    vals = list(kwargs.values())
+    vals.append(run_id)
+    conn = get_connection(db_path)
+    conn.execute(f"UPDATE pipeline_runs SET {sets} WHERE id = ?", vals)
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Dashboard queries
+# ---------------------------------------------------------------------------
+
+def get_subscriber_stats(db_path: str, env_subscribers: list[str] | None = None) -> dict:
+    conn = get_connection(db_path)
+    db_active = conn.execute("SELECT COUNT(*) FROM subscribers WHERE active = 1").fetchone()[0]
+    db_emails = set(
+        r[0] for r in conn.execute("SELECT email FROM subscribers WHERE active = 1").fetchall()
+    )
+    last_7 = conn.execute(
+        "SELECT COUNT(*) FROM subscribers WHERE active = 1 AND subscribed_at >= ?",
+        ((datetime.utcnow() - timedelta(days=7)).isoformat(),),
+    ).fetchone()[0]
+    conn.close()
+    env_set = set(env_subscribers) if env_subscribers else set()
+    total = len(db_emails | env_set)
+    return {"active": total, "db_only": db_active, "env_only": len(env_set - db_emails), "last_7_days": last_7}
+
+
+def get_article_stats(db_path: str) -> dict:
+    conn = get_connection(db_path)
+    total = conn.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
+    curated = conn.execute("SELECT COUNT(*) FROM articles WHERE curated = 1").fetchone()[0]
+    sent = conn.execute("SELECT COUNT(*) FROM articles WHERE sent = 1").fetchone()[0]
+    by_source = conn.execute(
+        "SELECT source, COUNT(*) as cnt FROM articles GROUP BY source ORDER BY cnt DESC LIMIT 10"
+    ).fetchall()
+    by_category = conn.execute(
+        "SELECT category, COUNT(*) as cnt FROM articles WHERE curated = 1 GROUP BY category ORDER BY cnt DESC"
+    ).fetchall()
+    conn.close()
+    return {
+        "total": total,
+        "curated": curated,
+        "sent": sent,
+        "by_source": [{"source": r[0], "count": r[1]} for r in by_source],
+        "by_category": [{"category": r[0], "count": r[1]} for r in by_category],
+    }
+
+
+def get_api_usage_stats(db_path: str) -> dict:
+    conn = get_connection(db_path)
+    total_cost = conn.execute("SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM api_usage").fetchone()[0]
+    month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0).isoformat()
+    monthly_cost = conn.execute(
+        "SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM api_usage WHERE created_at >= ?",
+        (month_start,),
+    ).fetchone()[0]
+    total_tokens = conn.execute(
+        "SELECT COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0) FROM api_usage"
+    ).fetchone()
+    by_run = conn.execute(
+        """SELECT pipeline_run_id, SUM(estimated_cost_usd) as cost, SUM(input_tokens) as inp, SUM(output_tokens) as out
+           FROM api_usage WHERE pipeline_run_id != ''
+           GROUP BY pipeline_run_id ORDER BY rowid DESC LIMIT 10"""
+    ).fetchall()
+    conn.close()
+    return {
+        "total_cost_usd": round(total_cost, 4),
+        "monthly_cost_usd": round(monthly_cost, 4),
+        "total_input_tokens": total_tokens[0],
+        "total_output_tokens": total_tokens[1],
+        "by_run": [{"run_id": r[0], "cost": round(r[1], 4), "input_tokens": r[2], "output_tokens": r[3]} for r in by_run],
+    }
+
+
+def get_email_stats(db_path: str) -> dict:
+    conn = get_connection(db_path)
+    total_sent = conn.execute("SELECT COUNT(*) FROM email_log WHERE status = 'sent'").fetchone()[0]
+    total_failed = conn.execute("SELECT COUNT(*) FROM email_log WHERE status = 'failed'").fetchone()[0]
+    recent = conn.execute(
+        "SELECT recipient, status, error_message, created_at FROM email_log ORDER BY id DESC LIMIT 20"
+    ).fetchall()
+    conn.close()
+    return {
+        "total_sent": total_sent,
+        "total_failed": total_failed,
+        "recent": [{"recipient": r[0], "status": r[1], "error": r[2], "created_at": r[3]} for r in recent],
+    }
+
+
+def get_pipeline_runs(db_path: str, limit: int = 20) -> list[dict]:
+    conn = get_connection(db_path)
+    rows = conn.execute(
+        "SELECT * FROM pipeline_runs ORDER BY started_at DESC LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def _row_to_article(row: sqlite3.Row) -> Article:

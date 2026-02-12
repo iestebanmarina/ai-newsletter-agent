@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Web
     base_url: str = "http://localhost:8080"
 
+    # Dashboard
+    dashboard_password: str = ""
+
     # Pipeline
     max_articles_per_newsletter: int = 20
 

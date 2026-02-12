@@ -4,6 +4,7 @@ import os
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 import schedule
@@ -14,7 +15,9 @@ from .collectors.rss import RSSCollector
 from .collectors.scraper import scrape_article_content
 from .config import settings
 from .curator import curate_articles
+from .curator import set_pipeline_context as set_curator_context
 from .db import (
+    create_pipeline_run,
     get_active_subscribers,
     get_articles_for_newsletter,
     get_uncurated_articles,
@@ -23,9 +26,11 @@ from .db import (
     mark_as_sent,
     update_article_content,
     update_article_curation,
+    update_pipeline_run,
 )
 from .emailer import send_newsletter
 from .generator import generate_newsletter
+from .generator import set_pipeline_context as set_generator_context
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,114 +49,163 @@ def run_pipeline(dry_run: bool = False) -> None:
     db_path = settings.database_path
     init_db(db_path)
 
-    # Step 1: Collect articles from all sources
-    logger.info("=== Step 1: Collecting articles ===")
-    all_articles = []
+    # Create pipeline run and set context on curator/generator
+    run_id = create_pipeline_run(db_path)
+    set_curator_context(db_path, run_id)
+    set_generator_context(db_path, run_id)
+    logger.info(f"Pipeline run {run_id} started")
 
-    collectors = [
-        RSSCollector(feed_urls=settings.rss_feeds),
-        GoogleNewsCollector(queries=settings.google_news_queries),
-        RedditCollector(
-            client_id=settings.reddit_client_id,
-            client_secret=settings.reddit_client_secret,
-            user_agent=settings.reddit_user_agent,
-            subreddits=settings.reddit_subreddits,
-        ),
-    ]
+    start_time = time.time()
 
-    for collector in collectors:
-        try:
-            articles = collector.collect()
-            all_articles.extend(articles)
-            logger.info(f"  {collector.name}: {len(articles)} articles")
-        except Exception:
-            logger.exception(f"  {collector.name}: failed")
+    try:
+        # Step 1: Collect articles from all sources
+        logger.info("=== Step 1: Collecting articles ===")
+        all_articles = []
 
-    new_count = insert_articles(db_path, all_articles)
-    logger.info(f"Stored {new_count} new articles ({len(all_articles)} total collected)")
+        collectors = [
+            RSSCollector(feed_urls=settings.rss_feeds),
+            GoogleNewsCollector(queries=settings.google_news_queries),
+            RedditCollector(
+                client_id=settings.reddit_client_id,
+                client_secret=settings.reddit_client_secret,
+                user_agent=settings.reddit_user_agent,
+                subreddits=settings.reddit_subreddits,
+            ),
+        ]
 
-    # Step 2: Scrape full content for articles missing it
-    logger.info("=== Step 2: Scraping article content ===")
-    uncurated = get_uncurated_articles(db_path)
-    scraped = 0
-    for article in uncurated:
-        if not article.raw_content or len(article.raw_content) < 100:
-            content = scrape_article_content(article.url)
-            if content:
-                update_article_content(db_path, article.url, content)
-                article.raw_content = content
-                scraped += 1
-    logger.info(f"Scraped content for {scraped} articles")
+        for collector in collectors:
+            try:
+                articles = collector.collect()
+                all_articles.extend(articles)
+                logger.info(f"  {collector.name}: {len(articles)} articles")
+            except Exception:
+                logger.exception(f"  {collector.name}: failed")
 
-    # Step 3: Curate with Claude
-    logger.info("=== Step 3: Curating articles with Claude ===")
-    uncurated = get_uncurated_articles(db_path)
-    if uncurated:
-        curated = curate_articles(
-            uncurated,
+        new_count = insert_articles(db_path, all_articles)
+        logger.info(f"Stored {new_count} new articles ({len(all_articles)} total collected)")
+        update_pipeline_run(db_path, run_id, articles_collected=len(all_articles))
+
+        # Step 2: Scrape full content for articles missing it
+        logger.info("=== Step 2: Scraping article content ===")
+        uncurated = get_uncurated_articles(db_path)
+        scraped = 0
+        for article in uncurated:
+            if not article.raw_content or len(article.raw_content) < 100:
+                content = scrape_article_content(article.url)
+                if content:
+                    update_article_content(db_path, article.url, content)
+                    article.raw_content = content
+                    scraped += 1
+        logger.info(f"Scraped content for {scraped} articles")
+
+        # Step 3: Curate with Claude
+        logger.info("=== Step 3: Curating articles with Claude ===")
+        uncurated = get_uncurated_articles(db_path)
+        curated_count = 0
+        if uncurated:
+            curated = curate_articles(
+                uncurated,
+                api_key=settings.anthropic_api_key,
+                model=settings.claude_model,
+            )
+            for article in curated:
+                if article.curated:
+                    update_article_curation(
+                        db_path,
+                        url=article.url,
+                        summary=article.summary,
+                        category=article.category,
+                        relevance_score=article.relevance_score,
+                    )
+                    curated_count += 1
+            logger.info(f"Curated {curated_count} articles")
+        else:
+            logger.info("No uncurated articles to process")
+        update_pipeline_run(db_path, run_id, articles_curated=curated_count)
+
+        # Step 4: Select top articles
+        logger.info("=== Step 4: Selecting top articles ===")
+        top_articles = get_articles_for_newsletter(
+            db_path, limit=settings.max_articles_per_newsletter
+        )
+        logger.info(f"Selected {len(top_articles)} articles for newsletter")
+
+        if not top_articles:
+            logger.warning("No articles available for newsletter, aborting")
+            duration = time.time() - start_time
+            update_pipeline_run(
+                db_path, run_id,
+                status="completed",
+                finished_at=datetime.utcnow().isoformat(),
+                duration_seconds=round(duration, 2),
+            )
+            return
+
+        # Step 5: Generate newsletter
+        logger.info("=== Step 5: Generating newsletter ===")
+        newsletter = generate_newsletter(
+            top_articles,
             api_key=settings.anthropic_api_key,
             model=settings.claude_model,
         )
-        for article in curated:
-            if article.curated:
-                update_article_curation(
-                    db_path,
-                    url=article.url,
-                    summary=article.summary,
-                    category=article.category,
-                    relevance_score=article.relevance_score,
-                )
-        logger.info(f"Curated {len(curated)} articles")
-    else:
-        logger.info("No uncurated articles to process")
 
-    # Step 4: Select top articles
-    logger.info("=== Step 4: Selecting top articles ===")
-    top_articles = get_articles_for_newsletter(
-        db_path, limit=settings.max_articles_per_newsletter
-    )
-    logger.info(f"Selected {len(top_articles)} articles for newsletter")
+        # Save HTML preview
+        preview_path = Path("newsletter_preview.html")
+        preview_path.write_text(newsletter.html_content, encoding="utf-8")
+        logger.info(f"Newsletter preview saved to {preview_path.resolve()}")
 
-    if not top_articles:
-        logger.warning("No articles available for newsletter, aborting")
-        return
+        update_pipeline_run(db_path, run_id, articles_sent=len(top_articles))
 
-    # Step 5: Generate newsletter
-    logger.info("=== Step 5: Generating newsletter ===")
-    newsletter = generate_newsletter(
-        top_articles,
-        api_key=settings.anthropic_api_key,
-        model=settings.claude_model,
-    )
-
-    # Save HTML preview
-    preview_path = Path("newsletter_preview.html")
-    preview_path.write_text(newsletter.html_content, encoding="utf-8")
-    logger.info(f"Newsletter preview saved to {preview_path.resolve()}")
-
-    # Step 6: Send email
-    if dry_run:
-        logger.info("=== Dry run: skipping email send ===")
-    else:
-        logger.info("=== Step 6: Sending newsletter ===")
-        # Merge subscribers from env var and database (union, no duplicates)
-        env_subscribers = set(settings.subscriber_list)
-        db_subscribers = set(get_active_subscribers(db_path))
-        all_subscribers = sorted(env_subscribers | db_subscribers)
-        logger.info(f"Sending to {len(all_subscribers)} subscribers ({len(env_subscribers)} env, {len(db_subscribers)} db)")
-
-        success = send_newsletter(
-            html_content=newsletter.html_content,
-            from_email=settings.newsletter_from_email,
-            subscribers=all_subscribers,
-            api_key=settings.resend_api_key,
-            base_url=settings.base_url,
-        )
-        if success:
-            mark_as_sent(db_path, [a.url for a in top_articles])
-            logger.info("Newsletter sent successfully!")
+        # Step 6: Send email
+        if dry_run:
+            logger.info("=== Dry run: skipping email send ===")
         else:
-            logger.error("Newsletter sending failed or partially failed")
+            logger.info("=== Step 6: Sending newsletter ===")
+            env_subscribers = set(settings.subscriber_list)
+            db_subscribers = set(get_active_subscribers(db_path))
+            all_subscribers = sorted(env_subscribers | db_subscribers)
+            logger.info(f"Sending to {len(all_subscribers)} subscribers ({len(env_subscribers)} env, {len(db_subscribers)} db)")
+
+            email_result = send_newsletter(
+                html_content=newsletter.html_content,
+                from_email=settings.newsletter_from_email,
+                subscribers=all_subscribers,
+                api_key=settings.resend_api_key,
+                base_url=settings.base_url,
+                db_path=db_path,
+                pipeline_run_id=run_id,
+            )
+            update_pipeline_run(
+                db_path, run_id,
+                emails_sent=email_result["sent"],
+                emails_failed=email_result["failed"],
+            )
+            if email_result["sent"] > 0:
+                mark_as_sent(db_path, [a.url for a in top_articles])
+                logger.info(f"Newsletter sent: {email_result['sent']} ok, {email_result['failed']} failed")
+            else:
+                logger.error("Newsletter sending failed")
+
+        duration = time.time() - start_time
+        update_pipeline_run(
+            db_path, run_id,
+            status="completed",
+            finished_at=datetime.utcnow().isoformat(),
+            duration_seconds=round(duration, 2),
+        )
+        logger.info(f"Pipeline run {run_id} completed in {duration:.1f}s")
+
+    except Exception as exc:
+        duration = time.time() - start_time
+        update_pipeline_run(
+            db_path, run_id,
+            status="failed",
+            finished_at=datetime.utcnow().isoformat(),
+            duration_seconds=round(duration, 2),
+            error_message=str(exc),
+        )
+        logger.exception(f"Pipeline run {run_id} failed after {duration:.1f}s")
+        raise
 
 
 def start_scheduler_thread() -> threading.Thread:

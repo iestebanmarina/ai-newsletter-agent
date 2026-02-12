@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard - Knowledge in Chain</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #0d0d1a;
+    color: #e2e8f0;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Login */
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+  }
+
+  .login-box {
+    background: rgba(13, 13, 26, 0.8);
+    border: 1px solid rgba(99, 179, 237, 0.2);
+    border-radius: 16px;
+    padding: 48px 40px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .login-box h1 {
+    font-size: 24px;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+
+  .login-box .subtitle {
+    font-size: 14px;
+    color: #a0aec0;
+    margin-bottom: 32px;
+  }
+
+  .login-box input[type="password"] {
+    width: 100%;
+    padding: 14px 20px;
+    border: 2px solid rgba(99, 179, 237, 0.3);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+    font-size: 16px;
+    outline: none;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+  }
+
+  .login-box input[type="password"]:focus {
+    border-color: #63b3ed;
+  }
+
+  .login-box button {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #63b3ed, #4299e1);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .login-box button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4);
+  }
+
+  .login-error {
+    color: #fc8181;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  /* Dashboard layout */
+  .dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  .dash-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .dash-header h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .dash-header .actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #63b3ed, #4299e1);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(66, 153, 225, 0.4);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: #63b3ed;
+    border: 1px solid rgba(99, 179, 237, 0.3);
+  }
+
+  .btn-outline:hover {
+    background: rgba(99, 179, 237, 0.1);
+  }
+
+  .refresh-note {
+    font-size: 12px;
+    color: #4a5568;
+  }
+
+  /* KPI cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .kpi-card {
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(99, 179, 237, 0.1);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .kpi-card .label {
+    font-size: 13px;
+    color: #a0aec0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .kpi-card .value {
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .kpi-card .sub {
+    font-size: 13px;
+    color: #63b3ed;
+    margin-top: 4px;
+  }
+
+  /* Tables */
+  .section {
+    margin-bottom: 32px;
+  }
+
+  .section h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+
+  .table-wrap {
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(99, 179, 237, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #a0aec0;
+    border-bottom: 1px solid rgba(99, 179, 237, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  td {
+    padding: 10px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(99, 179, 237, 0.05);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  .status-completed { color: #68d391; }
+  .status-running { color: #63b3ed; }
+  .status-failed { color: #fc8181; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 768px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  .note-box {
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(99, 179, 237, 0.1);
+    border-radius: 12px;
+    padding: 20px 24px;
+    font-size: 13px;
+    color: #a0aec0;
+    margin-bottom: 32px;
+  }
+
+  .note-box strong {
+    color: #e2e8f0;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1a1a2e;
+    border: 1px solid rgba(99, 179, 237, 0.3);
+    border-radius: 10px;
+    padding: 14px 24px;
+    font-size: 14px;
+    color: #e2e8f0;
+    display: none;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .toast.show { display: block; }
+</style>
+</head>
+<body>
+
+{% if not authenticated %}
+<!-- Login form -->
+<div class="login-wrap">
+  <div class="login-box">
+    <h1>Dashboard</h1>
+    <p class="subtitle">Knowledge in Chain</p>
+    {% if error %}
+    <p class="login-error">{{ error }}</p>
+    {% endif %}
+    <form method="POST" action="/dashboard/login">
+      <input type="password" name="password" placeholder="Password" required autofocus>
+      <button type="submit">Log in</button>
+    </form>
+  </div>
+</div>
+
+{% else %}
+<!-- Dashboard -->
+<div class="dashboard">
+  <div class="dash-header">
+    <h1>Knowledge in Chain &mdash; Dashboard</h1>
+    <div class="actions">
+      <span class="refresh-note" id="lastRefresh"></span>
+      <button class="btn btn-outline" onclick="loadAll()">Refresh</button>
+      <button class="btn btn-primary" id="triggerBtn" onclick="triggerPipeline()">Trigger Pipeline</button>
+      <a href="/" class="btn btn-outline">Landing</a>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="label">Active Subscribers</div>
+      <div class="value" id="kpiSubscribers">-</div>
+      <div class="sub" id="kpiSubNew"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Total Articles</div>
+      <div class="value" id="kpiArticles">-</div>
+      <div class="sub" id="kpiArticlesSub"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Monthly API Cost</div>
+      <div class="value" id="kpiMonthlyCost">-</div>
+      <div class="sub" id="kpiTotalCost"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Emails Sent</div>
+      <div class="value" id="kpiEmails">-</div>
+      <div class="sub" id="kpiEmailsSub"></div>
+    </div>
+  </div>
+
+  <!-- Note about untracked costs -->
+  <div class="note-box">
+    <strong>Note:</strong> Resend (email) and Railway (hosting) costs are not tracked here.
+    Resend free tier: 3,000 emails/month. Railway usage billed separately.
+  </div>
+
+  <!-- Two column tables -->
+  <div class="two-col">
+    <div class="section">
+      <h2>Articles by Source</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Source</th><th>Count</th></tr></thead>
+          <tbody id="tableBySource"><tr><td colspan="2">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <h2>Articles by Category</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Category</th><th>Count</th></tr></thead>
+          <tbody id="tableByCategory"><tr><td colspan="2">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost per run -->
+  <div class="section">
+    <h2>API Cost per Pipeline Run</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Run ID</th><th>Input Tokens</th><th>Output Tokens</th><th>Cost (USD)</th></tr></thead>
+        <tbody id="tableCostByRun"><tr><td colspan="4">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pipeline runs -->
+  <div class="section">
+    <h2>Pipeline Runs</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>Status</th><th>Started</th><th>Duration</th>
+            <th>Collected</th><th>Curated</th><th>Emails</th><th>Error</th>
+          </tr>
+        </thead>
+        <tbody id="tablePipelineRuns"><tr><td colspan="8">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent emails -->
+  <div class="section">
+    <h2>Recent Emails</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Recipient</th><th>Status</th><th>Date</th><th>Error</th></tr></thead>
+        <tbody id="tableEmails"><tr><td colspan="4">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+
+  function showToast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function() { t.classList.remove('show'); }, 3000);
+  }
+
+  function fmt(n) {
+    if (n === undefined || n === null) return '-';
+    return n.toLocaleString();
+  }
+
+  function fmtUsd(n) {
+    if (n === undefined || n === null) return '-';
+    return '$' + n.toFixed(4);
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '-';
+    var d = new Date(iso);
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function fmtDuration(s) {
+    if (s === null || s === undefined) return '-';
+    if (s < 60) return s.toFixed(1) + 's';
+    return (s / 60).toFixed(1) + 'm';
+  }
+
+  async function fetchJson(url) {
+    var res = await fetch(url);
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  async function loadSubscribers() {
+    var data = await fetchJson('/api/dashboard/subscribers');
+    if (!data) return;
+    $('kpiSubscribers').textContent = fmt(data.active);
+    var parts = [];
+    if (data.db_only) parts.push(fmt(data.db_only) + ' web');
+    if (data.env_only) parts.push(fmt(data.env_only) + ' env');
+    if (data.last_7_days) parts.push('+' + fmt(data.last_7_days) + ' last 7d');
+    $('kpiSubNew').textContent = parts.join(' · ') || 'No subscribers yet';
+  }
+
+  async function loadArticles() {
+    var data = await fetchJson('/api/dashboard/articles');
+    if (!data) return;
+    $('kpiArticles').textContent = fmt(data.total);
+    $('kpiArticlesSub').textContent = fmt(data.curated) + ' curated, ' + fmt(data.sent) + ' sent';
+
+    var src = '';
+    (data.by_source || []).forEach(function(r) {
+      src += '<tr><td>' + esc(r.source) + '</td><td>' + fmt(r.count) + '</td></tr>';
+    });
+    $('tableBySource').innerHTML = src || '<tr><td colspan="2">No data</td></tr>';
+
+    var cat = '';
+    (data.by_category || []).forEach(function(r) {
+      cat += '<tr><td>' + esc(r.category) + '</td><td>' + fmt(r.count) + '</td></tr>';
+    });
+    $('tableByCategory').innerHTML = cat || '<tr><td colspan="2">No data</td></tr>';
+  }
+
+  async function loadCosts() {
+    var data = await fetchJson('/api/dashboard/api-costs');
+    if (!data) return;
+    $('kpiMonthlyCost').textContent = fmtUsd(data.monthly_cost_usd);
+    $('kpiTotalCost').textContent = 'Total: ' + fmtUsd(data.total_cost_usd);
+
+    var html = '';
+    (data.by_run || []).forEach(function(r) {
+      html += '<tr><td>' + esc(r.run_id) + '</td><td>' + fmt(r.input_tokens) + '</td><td>' + fmt(r.output_tokens) + '</td><td>' + fmtUsd(r.cost) + '</td></tr>';
+    });
+    $('tableCostByRun').innerHTML = html || '<tr><td colspan="4">No data</td></tr>';
+  }
+
+  async function loadEmails() {
+    var data = await fetchJson('/api/dashboard/emails');
+    if (!data) return;
+    $('kpiEmails').textContent = fmt(data.total_sent);
+    $('kpiEmailsSub').textContent = fmt(data.total_failed) + ' failed';
+
+    var html = '';
+    (data.recent || []).forEach(function(r) {
+      html += '<tr><td>' + esc(r.recipient) + '</td><td>' + esc(r.status) + '</td><td>' + fmtDate(r.created_at) + '</td><td>' + esc(r.error || '') + '</td></tr>';
+    });
+    $('tableEmails').innerHTML = html || '<tr><td colspan="4">No data</td></tr>';
+  }
+
+  async function loadPipelineRuns() {
+    var data = await fetchJson('/api/dashboard/pipeline-runs');
+    if (!data) return;
+    var html = '';
+    (data || []).forEach(function(r) {
+      var cls = 'status-' + r.status;
+      html += '<tr>'
+        + '<td>' + esc(r.id) + '</td>'
+        + '<td class="' + cls + '">' + esc(r.status) + '</td>'
+        + '<td>' + fmtDate(r.started_at) + '</td>'
+        + '<td>' + fmtDuration(r.duration_seconds) + '</td>'
+        + '<td>' + fmt(r.articles_collected) + '</td>'
+        + '<td>' + fmt(r.articles_curated) + '</td>'
+        + '<td>' + fmt(r.emails_sent) + '/' + fmt(r.emails_failed) + '</td>'
+        + '<td>' + esc(r.error_message || '') + '</td>'
+        + '</tr>';
+    });
+    $('tablePipelineRuns').innerHTML = html || '<tr><td colspan="8">No data</td></tr>';
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  window.loadAll = function() {
+    loadSubscribers();
+    loadArticles();
+    loadCosts();
+    loadEmails();
+    loadPipelineRuns();
+    $('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  };
+
+  window.triggerPipeline = async function() {
+    var btn = $('triggerBtn');
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    try {
+      var res = await fetch('/api/dashboard/trigger-pipeline', { method: 'POST' });
+      var data = await res.json();
+      showToast(data.message || 'Pipeline triggered');
+    } catch(e) {
+      showToast('Error triggering pipeline');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Trigger Pipeline';
+    // Refresh after a short delay
+    setTimeout(loadAll, 2000);
+  };
+
+  // Initial load
+  loadAll();
+
+  // Auto-refresh every 60s
+  setInterval(loadAll, 60000);
+})();
+</script>
+{% endif %}
+
+</body>
+</html>

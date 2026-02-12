@@ -4,9 +4,20 @@ from typing import Any
 
 import anthropic
 
+from .db import log_api_usage
 from .models import Article, Category
 
 logger = logging.getLogger(__name__)
+
+# Module-level pipeline context (set by main.py before calling curate_articles)
+_current_db_path: str = ""
+_current_run_id: str = ""
+
+
+def set_pipeline_context(db_path: str, run_id: str) -> None:
+    global _current_db_path, _current_run_id
+    _current_db_path = db_path
+    _current_run_id = run_id
 
 CURATION_SYSTEM_PROMPT = """You are an AI news curator for a weekly newsletter. Your job is to analyze articles and provide structured metadata for each one.
 
@@ -88,6 +99,19 @@ def _curate_batch(
         system=CURATION_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )
+
+    if _current_db_path:
+        try:
+            log_api_usage(
+                _current_db_path,
+                pipeline_run_id=_current_run_id,
+                model=model,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                step="curation",
+            )
+        except Exception:
+            logger.debug("Failed to log API usage", exc_info=True)
 
     response_text = response.content[0].text
     parsed = _parse_json_response(response_text)

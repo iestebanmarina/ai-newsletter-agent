@@ -17,7 +17,10 @@ from .db import (
     get_api_usage_stats,
     get_article_stats,
     get_email_stats,
+    get_linkedin_post,
+    get_newsletter_by_id,
     get_pipeline_runs,
+    get_sent_newsletters,
     get_subscriber_stats,
     init_db,
     remove_subscriber,
@@ -63,7 +66,8 @@ EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 @app.get("/", response_class=HTMLResponse)
 async def landing():
     template = jinja_env.get_template("landing.html")
-    return template.render()
+    newsletters = get_sent_newsletters(settings.database_path, limit=5)
+    return template.render(newsletters=newsletters)
 
 
 @app.post("/api/subscribe")
@@ -90,6 +94,22 @@ async def unsubscribe(email: str = ""):
 
     template = jinja_env.get_template("unsubscribe.html")
     return template.render(email=email, removed=removed)
+
+
+@app.get("/newsletter/{newsletter_id}", response_class=HTMLResponse)
+async def newsletter_detail(newsletter_id: str):
+    newsletter = get_newsletter_by_id(settings.database_path, newsletter_id)
+    if newsletter is None:
+        return HTMLResponse("<h1>Newsletter not found</h1>", status_code=404)
+    return HTMLResponse(newsletter["html_content"])
+
+
+@app.get("/newsletter/{newsletter_id}/linkedin")
+async def newsletter_linkedin(newsletter_id: str):
+    post = get_linkedin_post(settings.database_path, newsletter_id)
+    if post is None:
+        return JSONResponse(status_code=404, content={"error": "Newsletter not found"})
+    return {"newsletter_id": newsletter_id, "linkedin_post": post}
 
 
 @app.get("/health")

@@ -83,6 +83,49 @@
     line-height: 1.7;
   }
 
+  .value-prop {
+    text-align: left;
+    max-width: 480px;
+    margin: 0 auto 36px;
+  }
+
+  .value-hook {
+    font-size: 0.9rem;
+    color: #f59e0b;
+    font-weight: 700;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .value-lines {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+    font-size: 0.82rem;
+    line-height: 2;
+  }
+
+  .value-lines li {
+    color: #a3a3a3;
+  }
+
+  .value-lines li span.prompt {
+    color: #f59e0b;
+    font-family: 'Share Tech Mono', monospace;
+    margin-right: 6px;
+  }
+
+  .value-lines li strong {
+    color: #d4d4d4;
+    font-weight: 700;
+  }
+
+  .value-closer {
+    font-size: 0.82rem;
+    color: #737373;
+    text-align: center;
+  }
+
   /* Form */
   .subscribe-form {
     display: flex;
@@ -214,6 +257,97 @@
     color: #f59e0b;
   }
 
+  /* Past Editions */
+  .past-editions {
+    padding: 0 20px 80px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .past-editions h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fafafa;
+    margin-bottom: 24px;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  .editions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .edition-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 20px 24px;
+    transition: border-color 0.2s;
+  }
+
+  .edition-card:hover {
+    border-color: #292929;
+  }
+
+  .edition-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .edition-subject {
+    font-size: 14px;
+    font-weight: 700;
+    color: #d4d4d4;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .edition-date {
+    font-size: 12px;
+    color: #525252;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .edition-link {
+    margin-left: 16px;
+    padding: 8px 18px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+  }
+
+  .edition-link:hover {
+    background: #f59e0b;
+    color: #000000;
+  }
+
+  @media (max-width: 520px) {
+    .edition-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .edition-link {
+      margin-left: 0;
+      align-self: flex-start;
+    }
+  }
+
   /* Footer */
   .footer {
     padding: 40px 20px;
@@ -249,7 +383,16 @@
   <div class="hero-content">
     <div class="logo">Knowledge in Chain</div>
     <h1>Your weekly dose of <span>AI intelligence</span></h1>
-    <p>Curated AI news, research breakthroughs, and industry insights delivered to your inbox every Monday. Powered by AI, crafted for humans.</p>
+    <div class="value-prop">
+      <div class="value-hook">Hundreds of AI headlines per week. Which ones actually matter?</div>
+      <ul class="value-lines">
+        <li><span class="prompt">&gt;</span> <strong>signal</strong> &mdash; AI curates 100s of sources, you get only what matters</li>
+        <li><span class="prompt">&gt;</span> <strong>translated</strong> &mdash; Research &amp; breakthroughs explained, not just linked</li>
+        <li><span class="prompt">&gt;</span> <strong>applicable</strong> &mdash; Real cases, real implementations, real lessons</li>
+        <li><span class="prompt">&gt;</span> <strong>radar</strong> &mdash; What devs and practitioners are actually building</li>
+      </ul>
+      <div class="value-closer">5 min Monday read. Stay ahead, not overwhelmed.</div>
+    </div>
 
     <form class="subscribe-form" id="subscribeForm">
       <input type="email" id="emailInput" placeholder="your@email.com" required autocomplete="email">
@@ -281,6 +424,23 @@
     </div>
   </div>
 </section>
+
+{% if newsletters %}
+<section class="past-editions">
+  <h2>Past Editions</h2>
+  <div class="editions-list">
+    {% for nl in newsletters %}
+    <div class="edition-card">
+      <div class="edition-info">
+        <div class="edition-subject">{{ nl.subject }}</div>
+        <div class="edition-date">{{ nl.sent_at[:10] if nl.sent_at else nl.created_at[:10] }}</div>
+      </div>
+      <a href="/newsletter/{{ nl.id }}" class="edition-link">Read</a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <footer class="footer">
   <p>Knowledge in Chain &bull; Created by I&ntilde;igo Esteban &bull; Powered by Claude</p>

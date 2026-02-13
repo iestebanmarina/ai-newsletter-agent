@@ -65,11 +65,17 @@ def init_db(db_path: str) -> None:
             subject TEXT NOT NULL,
             html_content TEXT NOT NULL,
             json_data TEXT DEFAULT '',
+            linkedin_post TEXT DEFAULT '',
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT NOT NULL,
             sent_at TEXT
         )
     """)
+    # Add linkedin_post column if upgrading from older schema
+    try:
+        conn.execute("ALTER TABLE pending_newsletters ADD COLUMN linkedin_post TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS pipeline_runs (
             id TEXT PRIMARY KEY,
@@ -234,6 +240,61 @@ def mark_newsletter_sent(db_path: str, newsletter_id: str) -> None:
     )
     conn.commit()
     conn.close()
+
+
+def save_linkedin_post(db_path: str, newsletter_id: str, post_text: str) -> None:
+    """Save a LinkedIn post for a newsletter."""
+    conn = get_connection(db_path)
+    conn.execute(
+        "UPDATE pending_newsletters SET linkedin_post = ? WHERE id = ?",
+        (post_text, newsletter_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_linkedin_post(db_path: str, newsletter_id: str) -> str | None:
+    """Get the LinkedIn post for a newsletter. Returns None if newsletter not found."""
+    conn = get_connection(db_path)
+    row = conn.execute(
+        "SELECT linkedin_post FROM pending_newsletters WHERE id = ?",
+        (newsletter_id,),
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return row["linkedin_post"]
+
+
+def get_sent_newsletters(db_path: str, limit: int = 5) -> list[dict]:
+    """Get the most recent sent newsletters (without html_content for performance)."""
+    conn = get_connection(db_path)
+    rows = conn.execute(
+        """SELECT id, subject, created_at, sent_at
+           FROM pending_newsletters
+           WHERE status = 'sent'
+           ORDER BY created_at DESC
+           LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_newsletter_by_id(db_path: str, newsletter_id: str) -> dict | None:
+    """Get a single newsletter by id, including html_content."""
+    conn = get_connection(db_path)
+    row = conn.execute(
+        """SELECT id, pipeline_run_id, subject, html_content, json_data,
+                  status, created_at, sent_at
+           FROM pending_newsletters
+           WHERE id = ?""",
+        (newsletter_id,),
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return dict(row)
 
 
 def add_subscriber(db_path: str, email: str) -> bool:

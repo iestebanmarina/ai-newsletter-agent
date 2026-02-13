@@ -26,6 +26,7 @@ from .db import (
     insert_articles,
     mark_as_sent,
     mark_newsletter_sent,
+    save_linkedin_post,
     save_pending_newsletter,
     update_article_content,
     update_article_curation,
@@ -34,6 +35,7 @@ from .db import (
 from .emailer import send_newsletter
 from .generator import generate_newsletter
 from .generator import set_pipeline_context as set_generator_context
+from .linkedin import generate_linkedin_post
 
 logging.basicConfig(
     level=logging.INFO,
@@ -204,12 +206,27 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
         today = datetime.utcnow().strftime("%B %d, %Y")
         subject = f"AI Weekly Digest - {today}"
 
+        # Step 5b: Generate LinkedIn post
+        logger.info("=== Step 5b: Generating LinkedIn post ===")
+        linkedin_post = generate_linkedin_post(
+            top_articles,
+            api_key=settings.anthropic_api_key,
+            model=settings.claude_model,
+            base_url=settings.base_url,
+            db_path=db_path,
+            run_id=run_id,
+        )
+        if linkedin_post:
+            logger.info(f"LinkedIn post:\n{linkedin_post}")
+
         # Step 6: Send / save
         if mode == "preview":
             # Save as pending newsletter
             nl_id = save_pending_newsletter(
                 db_path, run_id, subject, newsletter.html_content,
             )
+            if linkedin_post:
+                save_linkedin_post(db_path, nl_id, linkedin_post)
             logger.info(f"Newsletter saved as pending (id={nl_id})")
 
             # Send preview only to review_email
@@ -232,6 +249,14 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
                 logger.info(f"Preview sent: {email_result['sent']} ok, {email_result['failed']} failed")
         elif dry_run:
             logger.info("=== Dry run: skipping email send ===")
+            # Save to archive even in dry-run
+            nl_id = save_pending_newsletter(
+                db_path, run_id, subject, newsletter.html_content,
+            )
+            if linkedin_post:
+                save_linkedin_post(db_path, nl_id, linkedin_post)
+            mark_newsletter_sent(db_path, nl_id)
+            logger.info(f"Newsletter archived (id={nl_id})")
         else:
             # Full mode: send to all subscribers
             logger.info("=== Step 6: Sending newsletter ===")
@@ -257,7 +282,14 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
             )
             if email_result["sent"] > 0:
                 mark_as_sent(db_path, [a.url for a in top_articles])
-                logger.info(f"Newsletter sent: {email_result['sent']} ok, {email_result['failed']} failed")
+                # Save to archive
+                nl_id = save_pending_newsletter(
+                    db_path, run_id, subject, newsletter.html_content,
+                )
+                if linkedin_post:
+                    save_linkedin_post(db_path, nl_id, linkedin_post)
+                mark_newsletter_sent(db_path, nl_id)
+                logger.info(f"Newsletter sent and archived (id={nl_id}): {email_result['sent']} ok, {email_result['failed']} failed")
             else:
                 logger.error("Newsletter sending failed")
 

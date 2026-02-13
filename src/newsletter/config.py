@@ -36,9 +36,14 @@ class Settings(BaseSettings):
     # Pipeline
     max_articles_per_newsletter: int = 20
 
+    # Review
+    review_email: str = ""
+
     # Scheduler
-    schedule_day: str = "monday"
-    schedule_time: str = "09:00"
+    preview_schedule_day: str = "saturday"
+    preview_schedule_time: str = "09:00"
+    send_schedule_day: str = "monday"
+    send_schedule_time: str = "09:00"
 
     # RSS feeds
     rss_feeds: list[str] = [

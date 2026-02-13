@@ -59,6 +59,18 @@ def init_db(db_path: str) -> None:
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS pending_newsletters (
+            id TEXT PRIMARY KEY,
+            pipeline_run_id TEXT,
+            subject TEXT NOT NULL,
+            html_content TEXT NOT NULL,
+            json_data TEXT DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            sent_at TEXT
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS pipeline_runs (
             id TEXT PRIMARY KEY,
             status TEXT NOT NULL DEFAULT 'running',
@@ -171,6 +183,54 @@ def mark_as_sent(db_path: str, urls: list[str]) -> None:
     conn.executemany(
         "UPDATE articles SET sent = 1 WHERE url = ?",
         [(url,) for url in urls],
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Pending newsletters
+# ---------------------------------------------------------------------------
+
+def save_pending_newsletter(
+    db_path: str, run_id: str, subject: str, html: str, json_data: str = ""
+) -> str:
+    """Save a pending newsletter. Returns the newsletter id."""
+    newsletter_id = uuid.uuid4().hex[:12]
+    conn = get_connection(db_path)
+    conn.execute(
+        """INSERT INTO pending_newsletters
+           (id, pipeline_run_id, subject, html_content, json_data, status, created_at)
+           VALUES (?, ?, ?, ?, ?, 'pending', ?)""",
+        (newsletter_id, run_id, subject, html, json_data, datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return newsletter_id
+
+
+def get_pending_newsletter(db_path: str) -> dict | None:
+    """Get the most recent pending newsletter, or None."""
+    conn = get_connection(db_path)
+    row = conn.execute(
+        """SELECT id, pipeline_run_id, subject, html_content, json_data, status, created_at, sent_at
+           FROM pending_newsletters
+           WHERE status = 'pending'
+           ORDER BY created_at DESC
+           LIMIT 1"""
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return dict(row)
+
+
+def mark_newsletter_sent(db_path: str, newsletter_id: str) -> None:
+    """Mark a pending newsletter as sent."""
+    conn = get_connection(db_path)
+    conn.execute(
+        "UPDATE pending_newsletters SET status = 'sent', sent_at = ? WHERE id = ?",
+        (datetime.utcnow().isoformat(), newsletter_id),
     )
     conn.commit()
     conn.close()

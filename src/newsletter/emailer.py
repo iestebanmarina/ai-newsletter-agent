@@ -17,6 +17,7 @@ def send_newsletter(
     base_url: str = "",
     db_path: str = "",
     pipeline_run_id: str = "",
+    subject: str = "",
 ) -> dict:
     """Send the newsletter HTML to all subscribers via Resend.
 
@@ -36,8 +37,9 @@ def send_newsletter(
         return result
 
     resend.api_key = api_key
-    today = datetime.utcnow().strftime("%B %d, %Y")
-    subject = f"AI Weekly Digest - {today}"
+    if not subject:
+        today = datetime.utcnow().strftime("%B %d, %Y")
+        subject = f"AI Weekly Digest - {today}"
     base_url = base_url.rstrip("/")
 
     for email in subscribers:

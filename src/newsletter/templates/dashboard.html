@@ -416,6 +416,17 @@
     </div>
   </div>
 
+  <!-- Pending newsletters -->
+  <div class="section">
+    <h2>Pending Newsletters</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Subject</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody id="tablePending"><tr><td colspan="3">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Pipeline runs -->
   <div class="section">
     <h2>Pipeline Runs</h2>
@@ -541,6 +552,20 @@
     $('tableEmails').innerHTML = html || '<tr><td colspan="4">No data</td></tr>';
   }
 
+  async function loadPending() {
+    var data = await fetchJson('/api/dashboard/pending-newsletters');
+    if (!data) return;
+    var html = '';
+    (data || []).forEach(function(r) {
+      html += '<tr>'
+        + '<td>' + esc(r.subject) + '</td>'
+        + '<td>' + fmtDate(r.created_at) + '</td>'
+        + '<td><a href="/newsletter/' + encodeURIComponent(r.id) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">View</a></td>'
+        + '</tr>';
+    });
+    $('tablePending').innerHTML = html || '<tr><td colspan="3">No pending newsletters</td></tr>';
+  }
+
   async function loadPipelineRuns() {
     var data = await fetchJson('/api/dashboard/pipeline-runs');
     if (!data) return;
@@ -573,6 +598,7 @@
     loadArticles();
     loadCosts();
     loadEmails();
+    loadPending();
     loadPipelineRuns();
     $('lastRefresh').textContent = new Date().toLocaleTimeString();
   };

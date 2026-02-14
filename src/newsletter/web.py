@@ -19,6 +19,7 @@ from .db import (
     get_email_stats,
     get_linkedin_post,
     get_newsletter_by_id,
+    get_pending_newsletters,
     get_pipeline_runs,
     get_sent_newsletters,
     get_subscriber_stats,
@@ -199,6 +200,14 @@ async def api_pipeline_runs(dashboard_token: str | None = Cookie(default=None)):
     if err:
         return err
     return get_pipeline_runs(settings.database_path)
+
+
+@app.get("/api/dashboard/pending-newsletters")
+async def api_pending_newsletters(dashboard_token: str | None = Cookie(default=None)):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    return get_pending_newsletters(settings.database_path)
 
 
 class TriggerRequest(BaseModel):

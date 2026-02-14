@@ -392,6 +392,21 @@ def get_linkedin_post(db_path: str, newsletter_id: str) -> str | None:
     return row["linkedin_post"]
 
 
+def get_pending_newsletters(db_path: str, limit: int = 10) -> list[dict]:
+    """Get pending newsletters (without html_content for performance)."""
+    conn = get_connection(db_path)
+    rows = conn.execute(
+        """SELECT id, subject, created_at, status
+           FROM pending_newsletters
+           WHERE status = 'pending'
+           ORDER BY created_at DESC
+           LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def get_sent_newsletters(db_path: str, limit: int = 5) -> list[dict]:
     """Get the most recent sent newsletters (without html_content for performance)."""
     conn = get_connection(db_path)

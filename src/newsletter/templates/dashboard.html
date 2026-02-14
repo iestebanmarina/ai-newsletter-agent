@@ -315,6 +315,76 @@
   }
 
   .toast.show { display: block; }
+
+  /* LinkedIn modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+
+  .modal-overlay.show {
+    display: flex;
+  }
+
+  .modal {
+    background: #0a0a0a;
+    border: 1px solid #292929;
+    border-radius: 8px;
+    padding: 32px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .modal h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #60a5fa;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+
+  .modal pre {
+    background: #000000;
+    border: 1px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #d4d4d4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.6;
+    margin-bottom: 16px;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .btn-blue {
+    background: #60a5fa;
+    color: #000000;
+  }
+
+  .btn-blue:hover {
+    background: #3b82f6;
+    transform: translateY(-1px);
+  }
 </style>
 </head>
 <body>
@@ -455,6 +525,17 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="linkedinModal" onclick="closeLinkedIn(event)">
+  <div class="modal">
+    <h3>LinkedIn Post</h3>
+    <pre id="linkedinText"></pre>
+    <div class="modal-actions">
+      <button class="btn btn-blue" onclick="copyLinkedIn()">Copy</button>
+      <button class="btn btn-outline" onclick="closeLinkedIn()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -561,6 +642,7 @@
         + '<td>' + esc(r.subject) + '</td>'
         + '<td>' + fmtDate(r.created_at) + '</td>'
         + '<td><a href="/newsletter/' + encodeURIComponent(r.id) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">View</a>'
+        + ' &middot; <a href="#" onclick="viewLinkedIn(\'' + esc(r.id) + '\');return false;" style="color:#60a5fa;text-decoration:none;">LinkedIn</a>'
         + ' &middot; <a href="#" onclick="deletePending(\'' + esc(r.id) + '\');return false;" style="color:#f87171;text-decoration:none;">Delete</a></td>'
         + '</tr>';
     });
@@ -639,6 +721,36 @@
     btn.disabled = false;
     btn.textContent = 'Run';
     setTimeout(loadAll, 2000);
+  };
+
+  window.viewLinkedIn = async function(id) {
+    try {
+      var res = await fetch('/newsletter/' + encodeURIComponent(id) + '/linkedin');
+      if (!res.ok) {
+        showToast('No LinkedIn post found');
+        return;
+      }
+      var data = await res.json();
+      $('linkedinText').textContent = data.linkedin_post || 'No post available';
+      $('linkedinModal').classList.add('show');
+    } catch(e) {
+      showToast('Error loading LinkedIn post');
+    }
+  };
+
+  window.copyLinkedIn = async function() {
+    var text = $('linkedinText').textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard');
+    } catch(e) {
+      showToast('Failed to copy');
+    }
+  };
+
+  window.closeLinkedIn = function(e) {
+    if (e && e.target !== $('linkedinModal')) return;
+    $('linkedinModal').classList.remove('show');
   };
 
   // Initial load

@@ -553,6 +553,24 @@ def log_email_send(
 # Pipeline run tracking
 # ---------------------------------------------------------------------------
 
+def cleanup_stale_runs(db_path: str, max_minutes: int = 15) -> int:
+    """Mark pipeline runs stuck in 'running' for too long as failed. Returns count."""
+    cutoff = (datetime.utcnow() - timedelta(minutes=max_minutes)).isoformat()
+    conn = get_connection(db_path)
+    cursor = conn.execute(
+        """UPDATE pipeline_runs
+           SET status = 'failed',
+               finished_at = ?,
+               error_message = 'Auto-failed: stuck in running for over ' || ? || ' minutes'
+           WHERE status = 'running' AND started_at < ?""",
+        (datetime.utcnow().isoformat(), str(max_minutes), cutoff),
+    )
+    count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return count
+
+
 def create_pipeline_run(db_path: str) -> str:
     """Create a new pipeline run record. Returns the run id."""
     run_id = uuid.uuid4().hex[:12]

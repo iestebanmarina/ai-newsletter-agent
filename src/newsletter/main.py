@@ -17,6 +17,7 @@ from .config import settings
 from .curator import curate_articles
 from .curator import set_pipeline_context as set_curator_context
 from .db import (
+    cleanup_stale_runs,
     create_pipeline_run,
     get_active_subscribers,
     get_articles_for_newsletter,
@@ -55,6 +56,11 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
     """
     db_path = settings.database_path
     init_db(db_path)
+
+    # Clean up any runs stuck in "running" (e.g. from container restarts)
+    stale = cleanup_stale_runs(db_path)
+    if stale:
+        logger.warning(f"Auto-failed {stale} stale pipeline run(s)")
 
     # ------------------------------------------------------------------
     # mode = send-pending: send the latest pending newsletter

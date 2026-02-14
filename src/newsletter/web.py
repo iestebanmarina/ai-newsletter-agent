@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from .config import settings
 from .db import (
     add_subscriber,
+    delete_pending_newsletter,
     get_api_usage_stats,
     get_article_stats,
     get_email_stats,
@@ -208,6 +209,20 @@ async def api_pending_newsletters(dashboard_token: str | None = Cookie(default=N
     if err:
         return err
     return get_pending_newsletters(settings.database_path)
+
+
+@app.delete("/api/dashboard/pending-newsletters/{newsletter_id}")
+async def api_delete_pending_newsletter(
+    newsletter_id: str,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    deleted = delete_pending_newsletter(settings.database_path, newsletter_id)
+    if not deleted:
+        return JSONResponse(status_code=404, content={"ok": False, "message": "Newsletter not found or already sent"})
+    return {"ok": True}
 
 
 class TriggerRequest(BaseModel):

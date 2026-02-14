@@ -560,7 +560,8 @@
       html += '<tr>'
         + '<td>' + esc(r.subject) + '</td>'
         + '<td>' + fmtDate(r.created_at) + '</td>'
-        + '<td><a href="/newsletter/' + encodeURIComponent(r.id) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">View</a></td>'
+        + '<td><a href="/newsletter/' + encodeURIComponent(r.id) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">View</a>'
+        + ' &middot; <a href="#" onclick="deletePending(\'' + esc(r.id) + '\');return false;" style="color:#f87171;text-decoration:none;">Delete</a></td>'
         + '</tr>';
     });
     $('tablePending').innerHTML = html || '<tr><td colspan="3">No pending newsletters</td></tr>';
@@ -601,6 +602,22 @@
     loadPending();
     loadPipelineRuns();
     $('lastRefresh').textContent = new Date().toLocaleTimeString();
+  };
+
+  window.deletePending = async function(id) {
+    if (!confirm('Delete this pending newsletter? This cannot be undone.')) return;
+    try {
+      var res = await fetch('/api/dashboard/pending-newsletters/' + encodeURIComponent(id), {method: 'DELETE'});
+      var data = await res.json();
+      if (res.ok) {
+        showToast('Newsletter deleted');
+        loadPending();
+      } else {
+        showToast(data.message || 'Failed to delete');
+      }
+    } catch(e) {
+      showToast('Error deleting newsletter');
+    }
   };
 
   window.triggerPipeline = async function() {

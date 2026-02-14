@@ -379,6 +379,20 @@ def save_linkedin_post(db_path: str, newsletter_id: str, post_text: str) -> None
     conn.close()
 
 
+def delete_pending_newsletter(db_path: str, newsletter_id: str) -> bool:
+    """Delete a pending newsletter. Only deletes if status is 'pending'. Returns True if deleted."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            "DELETE FROM pending_newsletters WHERE id = ? AND status = 'pending'",
+            (newsletter_id,),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
 def get_linkedin_post(db_path: str, newsletter_id: str) -> str | None:
     """Get the LinkedIn post for a newsletter. Returns None if newsletter not found."""
     conn = get_connection(db_path)

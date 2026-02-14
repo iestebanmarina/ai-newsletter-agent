@@ -25,6 +25,7 @@ from .db import (
     init_db,
     remove_subscriber,
 )
+from . import main as main_module
 from .main import run_pipeline, start_scheduler_thread
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,10 @@ async def newsletter_linkedin(newsletter_id: str):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    t = main_module._scheduler_thread
+    scheduler_alive = t is not None and t.is_alive()
+    status = "ok" if scheduler_alive else "degraded"
+    return {"status": status, "scheduler_alive": scheduler_alive}
 
 
 # ---------------------------------------------------------------------------
@@ -197,12 +201,32 @@ async def api_pipeline_runs(dashboard_token: str | None = Cookie(default=None)):
     return get_pipeline_runs(settings.database_path)
 
 
+class TriggerRequest(BaseModel):
+    mode: str = "dry-run"
+
+
 @app.post("/api/dashboard/trigger-pipeline")
-async def trigger_pipeline(dashboard_token: str | None = Cookie(default=None)):
+async def trigger_pipeline(
+    req: TriggerRequest | None = None,
+    dashboard_token: str | None = Cookie(default=None),
+):
     err = _require_auth(dashboard_token)
     if err:
         return err
-    # Run pipeline in background thread
-    t = threading.Thread(target=run_pipeline, kwargs={"dry_run": True}, daemon=True)
+
+    mode = (req.mode if req else "dry-run").strip().lower()
+    allowed = {"dry-run", "preview", "send-pending"}
+    if mode not in allowed:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "message": f"Invalid mode. Choose from: {', '.join(sorted(allowed))}"},
+        )
+
+    if mode == "dry-run":
+        kwargs: dict = {"dry_run": True}
+    else:
+        kwargs = {"mode": mode}
+
+    t = threading.Thread(target=run_pipeline, kwargs=kwargs, daemon=True)
     t.start()
-    return {"ok": True, "message": "Pipeline triggered (dry-run). Check pipeline runs for progress."}
+    return {"ok": True, "message": f"Pipeline triggered ({mode}). Check pipeline runs for progress."}

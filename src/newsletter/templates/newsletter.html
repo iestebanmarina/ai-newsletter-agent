@@ -3,154 +3,536 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ subject }}</title>
+<title>{{ subject_line }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f7;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    color: #333;
-    line-height: 1.6;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #000;
+    color: #d4d4d4;
+    line-height: 1.7;
+    background-image: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
+    background-size: 24px 24px;
   }
-  .wrapper {
+
+  .container {
     max-width: 640px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 48px 24px;
   }
+
+  /* Header */
   .header {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    color: #fff;
-    padding: 40px 30px;
     text-align: center;
-    border-radius: 12px 12px 0 0;
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid #1a1a1a;
   }
-  .header h1 {
-    margin: 0 0 8px 0;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
+
+  .header .logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    color: #f59e0b;
+    margin-bottom: 8px;
   }
+
   .header .date {
-    font-size: 14px;
-    color: #a0aec0;
+    font-size: 13px;
+    color: #525252;
   }
-  .content {
-    background: #ffffff;
-    padding: 30px;
-  }
-  .editorial {
-    background: #f7fafc;
-    border-left: 4px solid #0f3460;
-    padding: 20px 24px;
-    margin-bottom: 30px;
-    border-radius: 0 8px 8px 0;
-    font-size: 15px;
-    color: #4a5568;
-  }
-  .section {
-    margin-bottom: 32px;
-  }
-  .section-title {
-    font-size: 20px;
+
+  /* Section labels */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
     font-weight: 700;
-    color: #1a1a2e;
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 8px;
+    color: #f59e0b;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .section {
+    margin-bottom: 48px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid #141414;
+  }
+
+  .section:last-of-type {
+    border-bottom: none;
+  }
+
+  /* Signal */
+  .signal-headline {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fafafa;
+    line-height: 1.3;
+    margin-bottom: 20px;
+  }
+
+  .signal-block {
     margin-bottom: 16px;
   }
-  .article-card {
-    border: 1px solid #e2e8f0;
+
+  .signal-block strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #737373;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .signal-block p {
+    font-size: 15px;
+    color: #d4d4d4;
+  }
+
+  .source-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #525252;
+    margin-top: 16px;
+  }
+
+  .source-link a {
+    color: #f59e0b;
+    text-decoration: none;
+  }
+
+  .source-link a:hover {
+    text-decoration: underline;
+  }
+
+  /* Radar */
+  .radar-item {
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #0f0f0f;
+  }
+
+  .radar-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .radar-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #f59e0b;
+    margin-bottom: 6px;
+  }
+
+  .radar-takeaway {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fafafa;
+    line-height: 1.4;
+    margin-bottom: 10px;
+  }
+
+  .radar-context {
+    font-size: 14px;
+    color: #a3a3a3;
+    margin-bottom: 8px;
+    line-height: 1.6;
+  }
+
+  .radar-summary {
+    font-size: 13px;
+    color: #525252;
+    font-style: italic;
+    margin-bottom: 6px;
+  }
+
+  .radar-source {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #404040;
+  }
+
+  .radar-source a {
+    color: #f59e0b;
+    text-decoration: none;
+  }
+
+  .radar-source a:hover {
+    text-decoration: underline;
+  }
+
+  /* Translate */
+  .concept-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fafafa;
+    margin-bottom: 16px;
+  }
+
+  .translate-block {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+  }
+
+  .translate-block strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #f59e0b;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* Use This */
+  .prompt-problem {
+    font-size: 16px;
+    color: #fafafa;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .prompt-box {
+    background: #0a0a0a;
+    border: 1px solid #292929;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 8px 8px 0;
+    padding: 20px;
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #e5e5e5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  .example-box {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
     border-radius: 8px;
     padding: 16px 20px;
     margin-bottom: 12px;
-    transition: border-color 0.2s;
+    font-size: 13px;
+    color: #737373;
+    font-style: italic;
   }
-  .article-card:hover {
-    border-color: #0f3460;
-  }
-  .article-title {
-    font-size: 16px;
-    font-weight: 600;
-    margin: 0 0 6px 0;
-  }
-  .article-title a {
-    color: #1a1a2e;
-    text-decoration: none;
-  }
-  .article-title a:hover {
-    color: #0f3460;
-    text-decoration: underline;
-  }
-  .article-meta {
-    font-size: 12px;
-    color: #a0aec0;
+
+  .example-box::before {
+    content: 'Example output';
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #404040;
+    font-style: normal;
     margin-bottom: 8px;
   }
-  .article-summary {
+
+  .why-works {
     font-size: 14px;
-    color: #4a5568;
-    margin: 0;
+    color: #737373;
   }
-  .score-badge {
+
+  .why-works em {
+    color: #f59e0b;
+    font-style: normal;
+  }
+
+  .difficulty {
     display: inline-block;
-    background: #edf2f7;
-    color: #2d3748;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 12px;
-    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: #1a1a1a;
+    color: #737373;
+    margin-top: 8px;
   }
-  .footer {
-    background: #1a1a2e;
-    color: #a0aec0;
-    padding: 24px 30px;
-    text-align: center;
+
+  /* Before After */
+  .ba-task {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fafafa;
+    margin-bottom: 20px;
+  }
+
+  .ba-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 520px) {
+    .ba-grid { grid-template-columns: 1fr; }
+  }
+
+  .ba-col {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 20px;
+  }
+
+  .ba-col.before {
+    border-top: 3px solid #404040;
+  }
+
+  .ba-col.after {
+    border-top: 3px solid #f59e0b;
+  }
+
+  .ba-col h4 {
+    font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
-    border-radius: 0 0 12px 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
   }
+
+  .ba-col.before h4 { color: #525252; }
+  .ba-col.after h4 { color: #f59e0b; }
+
+  .ba-col p {
+    font-size: 14px;
+    color: #a3a3a3;
+  }
+
+  .ba-insight {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    font-size: 14px;
+    color: #d4d4d4;
+  }
+
+  .ba-insight strong {
+    color: #f59e0b;
+  }
+
+  /* Challenge */
+  .challenge-theme {
+    font-size: 17px;
+    font-weight: 600;
+    color: #fafafa;
+    margin-bottom: 24px;
+  }
+
+  .challenge-level {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+  }
+
+  .challenge-level-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .challenge-level-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #000;
+    background: #f59e0b;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .challenge-level-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a3a3a3;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .challenge-level p {
+    font-size: 14px;
+    color: #a3a3a3;
+    line-height: 1.7;
+  }
+
+  .challenge-learn {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin-top: 16px;
+  }
+
+  .challenge-learn strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #f59e0b;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding-top: 32px;
+    border-top: 1px solid #1a1a1a;
+    font-size: 12px;
+    color: #404040;
+  }
+
   .footer a {
-    color: #63b3ed;
+    color: #f59e0b;
     text-decoration: none;
   }
 </style>
 </head>
 <body>
-<div class="wrapper">
+<div class="container">
+
   <div class="header">
-    <h1>AI Weekly Digest</h1>
-    <div class="date">{{ date }}</div>
+    <div class="logo">Knowledge in Chain</div>
+    <div class="date">Edition #{{ edition_number }} &middot; {{ date }}</div>
   </div>
 
-  <div class="content">
-    {% if intro %}
-    <div class="editorial">
-      {{ intro }}
+  <!-- SIGNAL -->
+  <div class="section">
+    <div class="section-label">// Signal</div>
+    <h2 class="signal-headline">{{ signal.headline }}</h2>
+    <div class="signal-block">
+      <strong>What happened</strong>
+      <p>{{ signal.what_happened }}</p>
     </div>
-    {% endif %}
+    <div class="signal-block">
+      <strong>Why it matters</strong>
+      <p>{{ signal.why_it_matters }}</p>
+    </div>
+    <div class="signal-block">
+      <strong>What changes for you</strong>
+      <p>{{ signal.what_changes }}</p>
+    </div>
+    <div class="source-link">Source: <a href="{{ signal.source_url }}">{{ signal_source_short }}</a></div>
+  </div>
 
-    {% for section in sections %}
-    <div class="section">
-      <div class="section-title">{{ section.display_name }}</div>
-      {% for article in section.articles %}
-      <div class="article-card">
-        <h3 class="article-title">
-          <a href="{{ article.url }}">{{ article.title }}</a>
-          <span class="score-badge">{{ "%.0f"|format(article.relevance_score * 100) }}%</span>
-        </h3>
-        <div class="article-meta">{{ article.source }}</div>
-        <p class="article-summary">{{ article.summary }}</p>
+  <!-- TRANSLATE -->
+  <div class="section">
+    <div class="section-label">// Translate</div>
+    <div class="concept-name">{{ translate.concept }}</div>
+    <div class="translate-block">
+      <strong>The analogy</strong>
+      <p>{{ translate.analogy }}</p>
+    </div>
+    <div class="translate-block">
+      <strong>In practice</strong>
+      <p>{{ translate.in_practice }}</p>
+    </div>
+    <div class="translate-block">
+      <strong>Why now</strong>
+      <p>{{ translate.why_now }}</p>
+    </div>
+  </div>
+
+  <!-- USE THIS -->
+  <div class="section">
+    <div class="section-label">// Use This</div>
+    <p class="prompt-problem">{{ use_this.problem }}</p>
+    <div class="prompt-box">{{ use_this.prompt }}</div>
+    <div class="example-box">{{ use_this.example_output }}</div>
+    <p class="why-works">{{ use_this.why_it_works }}</p>
+    <div class="difficulty">{{ use_this.difficulty }}</div>
+  </div>
+
+  <!-- BEFORE AFTER -->
+  <div class="section">
+    <div class="section-label">// Before &rarr; After</div>
+    <h3 class="ba-task">{{ before_after.task }}</h3>
+    <div class="ba-grid">
+      <div class="ba-col before">
+        <h4>Before</h4>
+        <p>{{ before_after.before }}</p>
       </div>
-      {% endfor %}
+      <div class="ba-col after">
+        <h4>After</h4>
+        <p>{{ before_after.after }}</p>
+      </div>
+    </div>
+    <div class="ba-insight"><strong>Key insight:</strong> {{ before_after.key_insight }}</div>
+  </div>
+
+  <!-- RADAR -->
+  <div class="section">
+    <div class="section-label">// Radar</div>
+    {% for item in radar %}
+    <div class="radar-item">
+      <div class="radar-num">{{ "%02d"|format(loop.index) }}</div>
+      <div class="radar-takeaway">{{ item.takeaway }}</div>
+      <div class="radar-context">{{ item.context }}</div>
+      <div class="radar-summary">{{ item.summary }}</div>
+      <div class="radar-source"><a href="{{ item.url }}">{{ item.source }}</a></div>
     </div>
     {% endfor %}
   </div>
 
-  <div class="footer">
-    <p>Curated by AI Newsletter Agent &bull; Powered by Claude &bull; Created with ❤️ by Iñigo Esteban</p>
-    <p>You're receiving this because you subscribed. <a href="{% raw %}{{UNSUBSCRIBE_URL}}{% endraw %}">Unsubscribe</a></p>
+  <!-- CHALLENGE -->
+  <div class="section">
+    <div class="section-label">// Challenge</div>
+    <div class="challenge-theme">{{ challenge.theme }}</div>
+    <div class="challenge-level">
+      <div class="challenge-level-header">
+        <span class="challenge-level-num">1</span>
+        <span class="challenge-level-title">{{ challenge.level_1_title }}</span>
+      </div>
+      <p>{{ challenge.level_1 }}</p>
+    </div>
+    <div class="challenge-level">
+      <div class="challenge-level-header">
+        <span class="challenge-level-num">2</span>
+        <span class="challenge-level-title">{{ challenge.level_2_title }}</span>
+      </div>
+      <p>{{ challenge.level_2 }}</p>
+    </div>
+    <div class="challenge-level">
+      <div class="challenge-level-header">
+        <span class="challenge-level-num">3</span>
+        <span class="challenge-level-title">{{ challenge.level_3_title }}</span>
+      </div>
+      <p>{{ challenge.level_3 }}</p>
+    </div>
+    <div class="challenge-learn">
+      <strong>What you'll learn</strong>
+      <p>{{ challenge.what_youll_learn }}</p>
+    </div>
   </div>
+
+  <div class="footer">
+    <p>Knowledge in Chain &bull; Created by I&ntilde;igo Esteban &bull; Powered by Claude</p>
+    <p style="margin-top: 8px;"><a href="{% raw %}{{UNSUBSCRIBE_URL}}{% endraw %}">Unsubscribe</a></p>
+  </div>
+
 </div>
 </body>
 </html>

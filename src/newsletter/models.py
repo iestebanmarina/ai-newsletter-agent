@@ -47,6 +47,6 @@ class NewsletterSection(BaseModel):
 
 class Newsletter(BaseModel):
     date: datetime = Field(default_factory=datetime.utcnow)
-    intro_editorial: str = ""
-    sections: list[NewsletterSection] = []
+    subject_line: str = ""
     html_content: str = ""
+    json_data: str = ""

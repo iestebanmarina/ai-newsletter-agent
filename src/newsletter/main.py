@@ -194,6 +194,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
             top_articles,
             api_key=settings.anthropic_api_key,
             model=settings.claude_model,
+            db_path=db_path,
         )
 
         # Save HTML preview
@@ -203,8 +204,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
 
         update_pipeline_run(db_path, run_id, articles_sent=len(top_articles))
 
-        today = datetime.utcnow().strftime("%B %d, %Y")
-        subject = f"AI Weekly Digest - {today}"
+        subject = newsletter.subject_line or "Knowledge in Chain"
 
         # Step 5b: Generate LinkedIn post
         logger.info("=== Step 5b: Generating LinkedIn post ===")
@@ -224,6 +224,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
             # Save as pending newsletter
             nl_id = save_pending_newsletter(
                 db_path, run_id, subject, newsletter.html_content,
+                json_data=newsletter.json_data,
             )
             if linkedin_post:
                 save_linkedin_post(db_path, nl_id, linkedin_post)
@@ -252,6 +253,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
             # Save to archive even in dry-run
             nl_id = save_pending_newsletter(
                 db_path, run_id, subject, newsletter.html_content,
+                json_data=newsletter.json_data,
             )
             if linkedin_post:
                 save_linkedin_post(db_path, nl_id, linkedin_post)
@@ -285,6 +287,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
                 # Save to archive
                 nl_id = save_pending_newsletter(
                     db_path, run_id, subject, newsletter.html_content,
+                    json_data=newsletter.json_data,
                 )
                 if linkedin_post:
                     save_linkedin_post(db_path, nl_id, linkedin_post)
@@ -315,10 +318,16 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
         raise
 
 
+# Global reference so health check can verify the thread is alive
+_scheduler_thread: threading.Thread | None = None
+
+
 def start_scheduler_thread() -> threading.Thread:
     """Launch the scheduler in a daemon thread. Returns the thread."""
-    t = threading.Thread(target=run_scheduler, daemon=True)
+    global _scheduler_thread
+    t = threading.Thread(target=run_scheduler, daemon=True, name="scheduler")
     t.start()
+    _scheduler_thread = t
     return t
 
 
@@ -357,7 +366,10 @@ def run_scheduler() -> None:
     )
 
     while True:
-        schedule.run_pending()
+        try:
+            schedule.run_pending()
+        except Exception:
+            logger.exception("Scheduler: error running pending jobs")
         time.sleep(60)
 
 

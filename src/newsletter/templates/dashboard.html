@@ -343,7 +343,12 @@
     <div class="actions">
       <span class="refresh-note" id="lastRefresh"></span>
       <button class="btn btn-outline" onclick="loadAll()">Refresh</button>
-      <button class="btn btn-primary" id="triggerBtn" onclick="triggerPipeline()">Run Pipeline</button>
+      <select id="pipelineMode" style="padding:8px 12px;border:1px solid #292929;border-radius:6px;background:#0a0a0a;color:#d4d4d4;font-family:'JetBrains Mono',monospace;font-size:12px;">
+        <option value="dry-run">Dry Run</option>
+        <option value="preview">Preview</option>
+        <option value="send-pending">Send Pending</option>
+      </select>
+      <button class="btn btn-primary" id="triggerBtn" onclick="triggerPipeline()">Run</button>
       <a href="/" class="btn btn-outline">Landing</a>
     </div>
   </div>
@@ -574,17 +579,22 @@
 
   window.triggerPipeline = async function() {
     var btn = $('triggerBtn');
+    var mode = $('pipelineMode').value;
     btn.disabled = true;
     btn.textContent = 'Running...';
     try {
-      var res = await fetch('/api/dashboard/trigger-pipeline', { method: 'POST' });
+      var res = await fetch('/api/dashboard/trigger-pipeline', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mode: mode})
+      });
       var data = await res.json();
       showToast(data.message || 'Pipeline triggered');
     } catch(e) {
       showToast('Error triggering pipeline');
     }
     btn.disabled = false;
-    btn.textContent = 'Run Pipeline';
+    btn.textContent = 'Run';
     setTimeout(loadAll, 2000);
   };
 

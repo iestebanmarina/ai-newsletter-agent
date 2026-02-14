@@ -33,6 +33,9 @@ RUN apt-get update && \
 # Copy virtual environment and source from builder
 COPY --from=builder /app /app
 
+# Create /data dir for Railway Volume mount (persistent SQLite)
+RUN mkdir -p /data
+
 ENV TZ=UTC
 
 EXPOSE 8080

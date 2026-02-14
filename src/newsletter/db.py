@@ -6,6 +6,114 @@ from datetime import datetime, timedelta
 from .models import Article
 
 
+# ---------------------------------------------------------------------------
+# Newsletter history (cross-edition memory)
+# ---------------------------------------------------------------------------
+
+def init_history_table(db_path: str) -> None:
+    conn = get_connection(db_path)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS newsletter_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            edition_date TEXT NOT NULL,
+            subject_line TEXT,
+            signal_topic TEXT,
+            signal_url TEXT,
+            translate_concept TEXT,
+            use_this_topic TEXT,
+            use_this_difficulty TEXT,
+            before_after_task TEXT,
+            challenge_topic TEXT,
+            challenge_difficulty TEXT,
+            challenge_week_number INTEGER,
+            radar_urls TEXT DEFAULT '[]',
+            full_json TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def get_history(db_path: str) -> list[dict]:
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """SELECT edition_date, subject_line, signal_topic, signal_url,
+                      translate_concept, use_this_topic, use_this_difficulty,
+                      before_after_task, challenge_topic, challenge_difficulty,
+                      challenge_week_number, radar_urls
+               FROM newsletter_history ORDER BY id ASC"""
+        ).fetchall()
+    except Exception:
+        return []
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]
+
+
+def save_to_history(db_path: str, data: dict, week_number: int) -> None:
+    signal = data.get("signal", {})
+    translate = data.get("translate", {})
+    use_this = data.get("use_this", {})
+    ba = data.get("before_after", {})
+    challenge = data.get("challenge", {})
+    radar_urls = json.dumps([r.get("url", "") for r in data.get("radar", [])])
+
+    conn = get_connection(db_path)
+    conn.execute(
+        """INSERT INTO newsletter_history
+           (edition_date, subject_line, signal_topic, signal_url,
+            translate_concept, use_this_topic, use_this_difficulty,
+            before_after_task, challenge_topic, challenge_difficulty,
+            challenge_week_number, radar_urls, full_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            datetime.utcnow().strftime("%Y-%m-%d"),
+            data.get("subject_line", ""),
+            signal.get("headline", ""),
+            signal.get("source_url", ""),
+            translate.get("concept", ""),
+            use_this.get("problem", ""),
+            use_this.get("difficulty", "beginner"),
+            ba.get("task", ""),
+            challenge.get("theme", ""),
+            "multi-level",
+            week_number,
+            radar_urls,
+            json.dumps(data, ensure_ascii=False),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def build_history_context(history: list[dict]) -> str:
+    """Build a concise summary of past editions for the prompt."""
+    if not history:
+        return "This is the FIRST edition. No previous newsletters exist."
+
+    lines = [f"There have been {len(history)} previous edition(s). Here's what was covered:\n"]
+    for i, h in enumerate(history, 1):
+        lines.append(f"--- Edition {i} ({h['edition_date']}) ---")
+        lines.append(f"  Signal: {h['signal_topic']}")
+        lines.append(f"  Translate concept: {h['translate_concept']}")
+        lines.append(f"  Use This: {h['use_this_topic']} ({h['use_this_difficulty']})")
+        lines.append(f"  Before->After: {h['before_after_task']}")
+        lines.append(f"  Challenge theme: {h['challenge_topic'][:120]}")
+        lines.append("")
+
+    concepts_covered = [h["translate_concept"] for h in history if h["translate_concept"]]
+    if concepts_covered:
+        lines.append(f"TRANSLATE concepts already covered: {', '.join(concepts_covered)}")
+
+    challenge_themes = [h["challenge_topic"] for h in history if h["challenge_topic"]]
+    if challenge_themes:
+        lines.append(f"CHALLENGE themes already covered: {', '.join(challenge_themes)}")
+    lines.append("Remember: each challenge must teach a DIFFERENT core skill from all previous editions.")
+
+    return "\n".join(lines)
+
+
 def get_connection(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -76,6 +184,24 @@ def init_db(db_path: str) -> None:
         conn.execute("ALTER TABLE pending_newsletters ADD COLUMN linkedin_post TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # Column already exists
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS newsletter_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            edition_date TEXT NOT NULL,
+            subject_line TEXT,
+            signal_topic TEXT,
+            signal_url TEXT,
+            translate_concept TEXT,
+            use_this_topic TEXT,
+            use_this_difficulty TEXT,
+            before_after_task TEXT,
+            challenge_topic TEXT,
+            challenge_difficulty TEXT,
+            challenge_week_number INTEGER,
+            radar_urls TEXT DEFAULT '[]',
+            full_json TEXT
+        )
+    """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS pipeline_runs (
             id TEXT PRIMARY KEY,

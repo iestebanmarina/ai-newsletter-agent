@@ -39,7 +39,7 @@ def send_newsletter(
     resend.api_key = api_key
     if not subject:
         today = datetime.utcnow().strftime("%B %d, %Y")
-        subject = f"AI Weekly Digest - {today}"
+        subject = f"Knowledge in Chain - {today}"
     base_url = base_url.rstrip("/")
 
     for email in subscribers:

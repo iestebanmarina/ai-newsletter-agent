@@ -150,7 +150,7 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 ### Public
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/` | Landing page with subscription form + recent newsletters |
+| GET | `/` | Landing page with subscription form + past editions from `newsletter_history` |
 | POST | `/api/subscribe` | Add subscriber (validates email, reactivates if unsubscribed) |
 | GET | `/api/unsubscribe?email=` | Unsubscribe confirmation page |
 | GET | `/newsletter/{id}` | View archived newsletter HTML |

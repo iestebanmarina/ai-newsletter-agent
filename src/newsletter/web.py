@@ -26,6 +26,7 @@ from .db import (
     get_pending_newsletters,
     get_pipeline_runs,
     get_sent_newsletters,
+    get_subscriber_list,
     get_subscriber_stats,
     init_db,
     remove_subscriber,
@@ -56,6 +57,15 @@ def _check_auth(token: str | None) -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db(settings.database_path)
+    # Migrate env var subscribers to DB
+    env_emails = settings.subscriber_list
+    if env_emails:
+        migrated = 0
+        for email in env_emails:
+            if add_subscriber(settings.database_path, email.strip().lower()):
+                migrated += 1
+        if migrated:
+            logger.info(f"Migrated {migrated} env subscribers to DB")
     start_scheduler_thread()
     logger.info("Scheduler thread started")
     yield
@@ -173,7 +183,15 @@ async def api_subscribers(dashboard_token: str | None = Cookie(default=None)):
     err = _require_auth(dashboard_token)
     if err:
         return err
-    return get_subscriber_stats(settings.database_path, env_subscribers=settings.subscriber_list)
+    return get_subscriber_stats(settings.database_path)
+
+
+@app.get("/api/dashboard/subscribers/list")
+async def api_subscriber_list(dashboard_token: str | None = Cookie(default=None)):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    return get_subscriber_list(settings.database_path)
 
 
 @app.get("/api/dashboard/articles")

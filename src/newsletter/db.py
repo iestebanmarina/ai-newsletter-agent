@@ -655,6 +655,16 @@ def get_active_subscribers(db_path: str) -> list[str]:
     return [row["email"] for row in rows]
 
 
+def get_subscriber_list(db_path: str) -> list[dict]:
+    """Get all subscribers with details for dashboard display."""
+    conn = get_connection(db_path)
+    rows = conn.execute(
+        "SELECT email, subscribed_at, active FROM subscribers ORDER BY subscribed_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def remove_subscriber(db_path: str, email: str) -> bool:
     """Mark a subscriber as inactive. Returns True if found and deactivated."""
     conn = get_connection(db_path)
@@ -782,20 +792,19 @@ def update_pipeline_run(db_path: str, run_id: str, **kwargs) -> None:
 # Dashboard queries
 # ---------------------------------------------------------------------------
 
-def get_subscriber_stats(db_path: str, env_subscribers: list[str] | None = None) -> dict:
+def get_subscriber_stats(db_path: str) -> dict:
     conn = get_connection(db_path)
-    db_active = conn.execute("SELECT COUNT(*) FROM subscribers WHERE active = 1").fetchone()[0]
-    db_emails = set(
-        r[0] for r in conn.execute("SELECT email FROM subscribers WHERE active = 1").fetchall()
-    )
+    active = conn.execute("SELECT COUNT(*) FROM subscribers WHERE active = 1").fetchone()[0]
     last_7 = conn.execute(
         "SELECT COUNT(*) FROM subscribers WHERE active = 1 AND subscribed_at >= ?",
         ((datetime.utcnow() - timedelta(days=7)).isoformat(),),
     ).fetchone()[0]
+    last_30 = conn.execute(
+        "SELECT COUNT(*) FROM subscribers WHERE active = 1 AND subscribed_at >= ?",
+        ((datetime.utcnow() - timedelta(days=30)).isoformat(),),
+    ).fetchone()[0]
     conn.close()
-    env_set = set(env_subscribers) if env_subscribers else set()
-    total = len(db_emails | env_set)
-    return {"active": total, "db_only": db_active, "env_only": len(env_set - db_emails), "last_7_days": last_7}
+    return {"active": active, "last_7_days": last_7, "last_30_days": last_30}
 
 
 def get_article_stats(db_path: str) -> dict:

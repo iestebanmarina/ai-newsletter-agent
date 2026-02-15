@@ -56,7 +56,30 @@
     color: #f59e0b;
     text-transform: uppercase;
     letter-spacing: 3px;
+    margin-bottom: 4px;
+  }
+
+  .section-desc {
+    font-size: 13px;
+    color: #737373;
     margin-bottom: 20px;
+    font-style: italic;
+  }
+
+  .your-turn {
+    text-align: center;
+    padding: 28px 0;
+    margin-bottom: 48px;
+    border-bottom: 1px solid #141414;
+  }
+
+  .your-turn span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #f59e0b;
+    letter-spacing: 4px;
+    text-transform: uppercase;
   }
 
   .section {
@@ -424,6 +447,7 @@
   <!-- SIGNAL -->
   <div class="section">
     <div class="section-label">// Signal</div>
+    <p class="section-desc">The single most important AI story this week, explained simply.</p>
     <h2 class="signal-headline">{{ signal.headline }}</h2>
     <div class="signal-block">
       <strong>What happened</strong>
@@ -443,6 +467,7 @@
   <!-- TRANSLATE -->
   <div class="section">
     <div class="section-label">// Translate</div>
+    <p class="section-desc">One technical concept from the news, explained with an everyday analogy.</p>
     <div class="concept-name">{{ translate.concept }}</div>
     <div class="translate-block">
       <strong>The analogy</strong>
@@ -458,9 +483,30 @@
     </div>
   </div>
 
-  <!-- USE THIS -->
+  <!-- RADAR -->
   <div class="section">
-    <div class="section-label">// Use This</div>
+    <div class="section-label">// Radar</div>
+    <p class="section-desc">Quick takes on the stories shaping the AI landscape right now.</p>
+    {% for item in radar %}
+    <div class="radar-item">
+      <div class="radar-num">{{ "%02d"|format(loop.index) }}</div>
+      <div class="radar-takeaway">{{ item.takeaway }}</div>
+      <div class="radar-context">{{ item.context }}</div>
+      <div class="radar-summary">{{ item.summary }}</div>
+      <div class="radar-source"><a href="{{ item.url }}">{{ item.source }}</a></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- SEPARATOR -->
+  <div class="your-turn">
+    <span>// Now it's your turn</span>
+  </div>
+
+  <!-- PROMPT LAB (Use This) -->
+  <div class="section">
+    <div class="section-label">// Prompt Lab</div>
+    <p class="section-desc">A ready-to-use prompt you can copy, paste, and adapt to your work.</p>
     <p class="prompt-problem">{{ use_this.problem }}</p>
     <div class="prompt-box">{{ use_this.prompt }}</div>
     <div class="example-box">{{ use_this.example_output }}</div>
@@ -468,9 +514,10 @@
     <div class="difficulty">{{ use_this.difficulty }}</div>
   </div>
 
-  <!-- BEFORE AFTER -->
+  <!-- WORKFLOW SHIFT (Before → After) -->
   <div class="section">
-    <div class="section-label">// Before &rarr; After</div>
+    <div class="section-label">// Workflow Shift</div>
+    <p class="section-desc">A common task reimagined with AI. See the difference side by side.</p>
     <h3 class="ba-task">{{ before_after.task }}</h3>
     <div class="ba-grid">
       <div class="ba-col before">
@@ -485,23 +532,10 @@
     <div class="ba-insight"><strong>Key insight:</strong> {{ before_after.key_insight }}</div>
   </div>
 
-  <!-- RADAR -->
+  <!-- WEEKLY CHALLENGE (Challenge) -->
   <div class="section">
-    <div class="section-label">// Radar</div>
-    {% for item in radar %}
-    <div class="radar-item">
-      <div class="radar-num">{{ "%02d"|format(loop.index) }}</div>
-      <div class="radar-takeaway">{{ item.takeaway }}</div>
-      <div class="radar-context">{{ item.context }}</div>
-      <div class="radar-summary">{{ item.summary }}</div>
-      <div class="radar-source"><a href="{{ item.url }}">{{ item.source }}</a></div>
-    </div>
-    {% endfor %}
-  </div>
-
-  <!-- CHALLENGE -->
-  <div class="section">
-    <div class="section-label">// Challenge</div>
+    <div class="section-label">// Weekly Challenge</div>
+    <p class="section-desc">A hands-on exercise at three levels. Pick yours and start.</p>
     <div class="challenge-theme">{{ challenge.theme }}</div>
     <div class="challenge-level">
       <div class="challenge-level-header">

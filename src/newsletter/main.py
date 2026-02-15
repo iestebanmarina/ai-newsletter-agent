@@ -93,9 +93,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
             logger.warning("No pending newsletter found, nothing to send")
             return
 
-        env_subscribers = set(settings.subscriber_list)
-        db_subscribers = set(get_active_subscribers(db_path))
-        all_subscribers = sorted(env_subscribers | db_subscribers)
+        all_subscribers = sorted(get_active_subscribers(db_path))
         logger.info(f"Sending pending newsletter {pending['id']} to {len(all_subscribers)} subscribers")
 
         email_result = send_newsletter(
@@ -318,10 +316,8 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
         else:
             # Full mode: send to all subscribers
             logger.info("=== Step 6: Sending newsletter ===")
-            env_subscribers = set(settings.subscriber_list)
-            db_subscribers = set(get_active_subscribers(db_path))
-            all_subscribers = sorted(env_subscribers | db_subscribers)
-            logger.info(f"Sending to {len(all_subscribers)} subscribers ({len(env_subscribers)} env, {len(db_subscribers)} db)")
+            all_subscribers = sorted(get_active_subscribers(db_path))
+            logger.info(f"Sending to {len(all_subscribers)} subscribers")
 
             email_result = send_newsletter(
                 html_content=newsletter.html_content,

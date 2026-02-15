@@ -509,6 +509,17 @@
     </div>
   </div>
 
+  <!-- Subscribers list -->
+  <div class="section">
+    <h2>Subscribers</h2>
+    <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
+      <table>
+        <thead><tr><th>Email</th><th>Subscribed</th><th>Status</th></tr></thead>
+        <tbody id="tableSubscribers"><tr><td colspan="3">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Pipeline runs -->
   <div class="section">
     <h2>Pipeline Runs</h2>
@@ -613,10 +624,9 @@
     if (!data) return;
     $('kpiSubscribers').textContent = fmt(data.active);
     var parts = [];
-    if (data.db_only) parts.push(fmt(data.db_only) + ' web');
-    if (data.env_only) parts.push(fmt(data.env_only) + ' env');
-    if (data.last_7_days) parts.push('+' + fmt(data.last_7_days) + ' last 7d');
-    $('kpiSubNew').textContent = parts.join(' · ') || 'No subscribers yet';
+    if (data.last_7_days) parts.push('+' + fmt(data.last_7_days) + ' this week');
+    if (data.last_30_days) parts.push('+' + fmt(data.last_30_days) + ' this month');
+    $('kpiSubNew').textContent = parts.join(' \u00b7 ') || 'No subscribers yet';
   }
 
   async function loadArticles() {
@@ -708,6 +718,17 @@
     return d.innerHTML;
   }
 
+  async function loadSubscriberList() {
+    var data = await fetchJson('/api/dashboard/subscribers/list');
+    if (!data) return;
+    var html = '';
+    (data || []).forEach(function(r) {
+      var status = r.active ? '<span style="color:#34d399;">Active</span>' : '<span style="color:#f87171;">Inactive</span>';
+      html += '<tr><td>' + esc(r.email) + '</td><td>' + fmtDate(r.subscribed_at) + '</td><td>' + status + '</td></tr>';
+    });
+    $('tableSubscribers').innerHTML = html || '<tr><td colspan="3">No subscribers</td></tr>';
+  }
+
   async function loadHistory() {
     var data = await fetchJson('/api/dashboard/newsletter-history');
     if (!data) return;
@@ -733,6 +754,7 @@
     loadPending();
     loadPipelineRuns();
     loadHistory();
+    loadSubscriberList();
     $('lastRefresh').textContent = new Date().toLocaleTimeString();
   };
 

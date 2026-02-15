@@ -4,7 +4,7 @@ import os
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import schedule
@@ -35,9 +35,27 @@ from .db import (
     update_article_curation,
     update_pipeline_run,
 )
+from .db import save_to_history, init_history_table
 from .emailer import send_newsletter
 from .generator import generate_newsletter
 from .generator import set_pipeline_context as set_generator_context
+
+
+def _next_send_date() -> str:
+    """Compute the next send_schedule_day date (e.g. next Monday) as a formatted string."""
+    days_map = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6,
+    }
+    target = days_map.get(settings.send_schedule_day.lower(), 0)
+    today = datetime.utcnow()
+    days_ahead = (target - today.weekday()) % 7
+    if days_ahead == 0 and today.strftime("%H:%M") < settings.send_schedule_time:
+        days_ahead = 0  # Today is send day and it's before send time
+    elif days_ahead == 0:
+        days_ahead = 7  # Today is send day but already past send time
+    send_date = today + timedelta(days=days_ahead)
+    return send_date.strftime("%B %d, %Y")
 from .linkedin import generate_linkedin_post
 
 logging.basicConfig(
@@ -212,11 +230,15 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
 
         # Step 5: Generate newsletter
         logger.info("=== Step 5: Generating newsletter ===")
+        is_actual_send = (mode == "full" and not dry_run)
+        edition_date = _next_send_date()
         newsletter = generate_newsletter(
             top_articles,
             api_key=settings.anthropic_api_key,
             model=settings.claude_model,
             db_path=db_path,
+            save_history=is_actual_send,
+            edition_date=edition_date,
         )
 
         # Save HTML preview

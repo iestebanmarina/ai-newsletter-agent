@@ -183,8 +183,16 @@ def generate_newsletter(
     api_key: str,
     model: str,
     db_path: str = "",
+    save_history: bool = True,
+    edition_date: str = "",
 ) -> Newsletter:
-    """Generate a complete newsletter using the 6-section Knowledge in Chain format."""
+    """Generate a complete newsletter using the 6-section Knowledge in Chain format.
+
+    Args:
+        save_history: If False, don't save to history (for preview/dry-run).
+        edition_date: Date string for the newsletter header (e.g. "February 17, 2026").
+                      Defaults to UTC today if empty.
+    """
     effective_db_path = db_path or _current_db_path
 
     # Init history table and load history context
@@ -197,6 +205,9 @@ def generate_newsletter(
     week_number = len(history) + 1
     history_context = build_history_context(history)
 
+    if not edition_date:
+        edition_date = datetime.utcnow().strftime("%B %d, %Y")
+
     logger.info(f"Edition #{week_number} ({len(history)} previous editions in history)")
 
     # Prepare article data for the prompt
@@ -204,13 +215,13 @@ def generate_newsletter(
 
     # Call Claude to generate the newsletter content
     client = anthropic.Anthropic(api_key=api_key)
-    data = _generate_content(client, model, articles_for_prompt, history_context, week_number)
+    data = _generate_content(client, model, articles_for_prompt, history_context, week_number, edition_date)
 
     # Render HTML via Jinja2 template
-    html = _render_html(data, week_number)
+    html = _render_html(data, week_number, edition_date)
 
-    # Save to history for cross-edition memory
-    if effective_db_path:
+    # Save to history for cross-edition memory (skip in preview/dry-run)
+    if save_history and effective_db_path:
         save_to_history(effective_db_path, data, week_number)
         logger.info(f"Saved edition #{week_number} to history")
 
@@ -251,12 +262,16 @@ def _generate_content(
     articles: list[dict],
     history_context: str,
     week_number: int,
+    edition_date: str = "",
 ) -> dict:
     """Call Claude to generate the full newsletter JSON."""
     articles_text = json.dumps(articles, indent=2)
 
+    if not edition_date:
+        edition_date = datetime.utcnow().strftime("%B %d, %Y")
+
     user_message_parts = [
-        f"Today's date: {datetime.utcnow().strftime('%B %d, %Y')}",
+        f"Today's date: {edition_date}",
         f"This is EDITION #{week_number} of the newsletter.",
         "",
         "=== HISTORY OF PREVIOUS EDITIONS ===",
@@ -317,7 +332,7 @@ def _generate_content(
         raise
 
 
-def _render_html(data: dict, week_number: int) -> str:
+def _render_html(data: dict, week_number: int, edition_date: str = "") -> str:
     """Render the newsletter HTML using the Jinja2 template."""
     env = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
@@ -325,7 +340,9 @@ def _render_html(data: dict, week_number: int) -> str:
     )
     template = env.get_template("newsletter.html")
 
-    today = datetime.utcnow().strftime("%B %d, %Y")
+    if not edition_date:
+        edition_date = datetime.utcnow().strftime("%B %d, %Y")
+    today = edition_date
 
     # Compute short source URL for the signal section
     source_url = data.get("signal", {}).get("source_url", "")

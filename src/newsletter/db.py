@@ -230,6 +230,24 @@ def init_db(db_path: str) -> None:
             error_message TEXT DEFAULT ''
         )
     """)
+    # One-time cleanup: remove history entries from preview runs that never sent
+    try:
+        sent_count = conn.execute(
+            "SELECT COUNT(*) FROM pending_newsletters WHERE status = 'sent'"
+        ).fetchone()[0]
+        history_count = conn.execute(
+            "SELECT COUNT(*) FROM newsletter_history"
+        ).fetchone()[0]
+        if history_count > sent_count:
+            excess = history_count - sent_count
+            conn.execute(
+                "DELETE FROM newsletter_history WHERE id IN "
+                "(SELECT id FROM newsletter_history ORDER BY id DESC LIMIT ?)",
+                (excess,),
+            )
+    except Exception:
+        pass  # Table may not exist yet on first run
+
     conn.commit()
     conn.close()
 

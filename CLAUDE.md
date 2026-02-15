@@ -165,6 +165,7 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 | POST | `/dashboard/login` | Password login → cookie token |
 | GET | `/api/dashboard/subscribers` | Subscriber stats (active, last 7d, last 30d) |
 | GET | `/api/dashboard/subscribers/list` | Full subscriber list (email, date, status) |
+| GET | `/api/dashboard/subscribers/growth` | Cumulative subscriber totals (weekly + monthly, last 12 each) |
 | GET | `/api/dashboard/articles` | Article stats (by source, by category) |
 | GET | `/api/dashboard/api-costs` | API usage & cost breakdown |
 | GET | `/api/dashboard/emails` | Email send stats + recent logs |
@@ -172,6 +173,7 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 | GET | `/api/dashboard/pending-newsletters` | List pending newsletters |
 | PATCH | `/api/dashboard/pending-newsletters/{id}` | Edit edition number/date (re-renders HTML) |
 | DELETE | `/api/dashboard/pending-newsletters/{id}` | Delete a pending newsletter (only if status=pending) |
+| POST | `/api/dashboard/pending-newsletters/{id}/requeue` | Move a sent newsletter back to pending |
 | GET | `/api/dashboard/newsletter-history` | List all edition history entries |
 | DELETE | `/api/dashboard/newsletter-history/{id}` | Delete a history entry |
 | POST | `/api/dashboard/trigger-pipeline` | Trigger pipeline (mode: dry-run/preview/send-pending) |
@@ -207,7 +209,7 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 | BASE_URL | Yes | Public URL for unsubscribe links (https://knowledgeinchain.com) |
 | CLAUDE_MODEL | No | Model for curation/generation (default: claude-sonnet-4-5-20250929) |
 | NEWSLETTER_SUBSCRIBERS | No | Comma-separated subscriber emails (migrated to DB on startup) |
-| REVIEW_EMAIL | No | Email for preview sends |
+| REVIEW_EMAIL | No | Email for preview ([PREVIEW]) and dry-run ([TEST]) sends |
 | DASHBOARD_PASSWORD | No | Dashboard auth (empty = open access) |
 | DATABASE_PATH | No | SQLite path (default: newsletter.db, Railway: /data/newsletter.db) |
 | MAX_ARTICLES_PER_NEWSLETTER | No | Article limit per edition (default: 20) |

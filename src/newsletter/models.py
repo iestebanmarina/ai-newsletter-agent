@@ -31,6 +31,11 @@ class Article(BaseModel):
     summary: str = ""
     category: Category = Category.UNCATEGORIZED
     relevance_score: float = 0.0
+    impact_score: float = 0.0
+    actionability_score: float = 0.0
+    source_quality_score: float = 0.0
+    recency_bonus: float = 0.0
+    final_score: float = 0.0
     collected_at: datetime = Field(default_factory=datetime.utcnow)
     curated: bool = False
     sent: bool = False

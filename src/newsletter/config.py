@@ -56,6 +56,16 @@ class Settings(BaseSettings):
         "https://ai.meta.com/blog/rss/",
     ]
 
+    # Expert RSS feeds (blogs, substacks, podcasts)
+    expert_rss_feeds: list[str] = [
+        "https://karpathy.substack.com/feed",
+        "https://drfeifei.substack.com/feed",
+        "https://www.interconnects.ai/feed",
+        "https://simonwillison.net/atom/everything/",
+        "https://lilianweng.github.io/index.xml",
+        "https://lexfridman.com/feed/podcast/",
+    ]
+
     # Google News queries
     google_news_queries: list[str] = [
         "artificial intelligence",
@@ -69,6 +79,27 @@ class Settings(BaseSettings):
         "MachineLearning",
         "LocalLLaMA",
     ]
+
+    # Hugging Face Papers
+    huggingface_enabled: bool = True
+    huggingface_feed_url: str = "https://papers.takara.ai/api/feed"
+
+    # Bluesky
+    bluesky_enabled: bool = True
+    bluesky_handles: list[str] = [
+        "yolanda.gil.bsky.social",
+        "emollick.bsky.social",
+        "timnitgebru.bsky.social",
+        "jackclark.bsky.social",
+    ]
+
+    # Curation
+    curation_context_length: int = 5000
+
+    # Diversity-aware selection
+    max_articles_same_source: int = 5
+    min_papers_per_newsletter: int = 2
+    min_expert_per_newsletter: int = 1
 
     @property
     def subscriber_list(self) -> list[str]:

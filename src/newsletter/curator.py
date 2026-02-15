@@ -4,6 +4,7 @@ from typing import Any
 
 import anthropic
 
+from .config import settings
 from .db import log_api_usage
 from .models import Article, Category
 
@@ -30,16 +31,16 @@ For each article, you must return:
    - success_case: Real-world AI implementations, case studies, production deployments
    - uncategorized: Doesn't fit other categories
 
-2. **relevance_score**: 0.0 to 1.0 rating of how relevant and interesting this is for an AI-focused audience
-   - 1.0: Major breakthrough, paradigm shift, must-read
-   - 0.7-0.9: Very interesting, significant development
-   - 0.4-0.6: Moderately interesting, niche but valuable
-   - 0.1-0.3: Minor news, tangentially related
-   - 0.0: Not relevant to AI
+2. **Scores** (all 0.0 to 1.0 unless noted):
+   - **relevance**: How relevant and interesting this is for an AI-focused audience (0.0-1.0)
+   - **impact**: Breakthrough vs incremental. Major paradigm shifts=0.9+, significant=0.7, incremental=0.3-0.5 (0.0-1.0)
+   - **actionability**: Can readers act on this now? Practical tools/techniques=0.8+, theoretical=0.2 (0.0-1.0)
+   - **source_quality**: Research paper=0.9+, Expert blog=0.8, Major news outlet=0.6, Reddit/forum=0.4 (0.0-1.0)
+   - **recency_bonus**: Extra credit for very fresh news. Breaking/today=0.2, this week=0.1, older=0.0 (0.0-0.2)
 
 3. **summary**: A concise 2-3 sentence summary capturing the key takeaway. Write in a professional, engaging tone.
 
-Respond with a JSON array of objects, one per article. Each object must have: "url", "category", "relevance_score", "summary"."""
+Respond with a JSON array of objects, one per article. Each object must have: "url", "category", "relevance", "impact", "actionability", "source_quality", "recency_bonus", "summary"."""
 
 BATCH_SIZE = 10
 
@@ -78,8 +79,9 @@ def _curate_batch(
 ) -> list[Article]:
     """Send a batch of articles to Claude for curation."""
     articles_data = []
+    ctx_len = settings.curation_context_length
     for a in articles:
-        content = a.raw_content[:2000] if a.raw_content else "(no content scraped)"
+        content = a.raw_content[:ctx_len] if a.raw_content else "(no content scraped)"
         articles_data.append({
             "url": a.url,
             "title": a.title,
@@ -127,8 +129,29 @@ def _curate_batch(
         if article.url in result_map:
             data = result_map[article.url]
             article.category = data.get("category", Category.UNCATEGORIZED)
-            article.relevance_score = float(data.get("relevance_score", 0.0))
             article.summary = data.get("summary", "")
+
+            # Multi-dimensional scores
+            relevance = float(data.get("relevance", data.get("relevance_score", 0.0)))
+            impact = float(data.get("impact", 0.0))
+            actionability = float(data.get("actionability", 0.0))
+            source_quality = float(data.get("source_quality", 0.0))
+            recency_bonus = float(data.get("recency_bonus", 0.0))
+
+            final_score = (
+                relevance * 0.35
+                + impact * 0.25
+                + actionability * 0.20
+                + source_quality * 0.15
+                + recency_bonus * 0.05
+            )
+
+            article.relevance_score = final_score
+            article.impact_score = impact
+            article.actionability_score = actionability
+            article.source_quality_score = source_quality
+            article.recency_bonus = recency_bonus
+            article.final_score = final_score
             article.curated = True
         curated.append(article)
 

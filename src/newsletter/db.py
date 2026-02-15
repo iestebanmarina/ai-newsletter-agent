@@ -184,6 +184,19 @@ def init_db(db_path: str) -> None:
         conn.execute("ALTER TABLE pending_newsletters ADD COLUMN linkedin_post TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # Column already exists
+
+    # Add multi-dimensional scoring columns
+    for col in [
+        "impact_score REAL DEFAULT 0.0",
+        "actionability_score REAL DEFAULT 0.0",
+        "source_quality_score REAL DEFAULT 0.0",
+        "recency_bonus REAL DEFAULT 0.0",
+        "final_score REAL DEFAULT 0.0",
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE articles ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS newsletter_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -268,18 +281,104 @@ def get_uncurated_articles(db_path: str) -> list[Article]:
     return [_row_to_article(r) for r in rows]
 
 
-def get_articles_for_newsletter(db_path: str, limit: int = 20) -> list[Article]:
-    """Get curated, unsent articles sorted by relevance score."""
+def get_articles_for_newsletter(
+    db_path: str,
+    limit: int = 20,
+    max_same_source: int = 5,
+    min_papers: int = 2,
+    min_expert: int = 1,
+) -> list[Article]:
+    """Get curated, unsent articles with diversity-aware selection.
+
+    Selection rules:
+    1. Top overall article reserved for Signal
+    2. Max `max_same_source` from any single source
+    3. Min `min_papers` research papers (HF/arXiv) if available
+    4. Min `min_expert` expert voice (Bluesky/expert blogs) if available
+    5. Fill remainder by score
+    """
+    import logging
+    _logger = logging.getLogger(__name__)
+
     conn = get_connection(db_path)
     rows = conn.execute(
         """SELECT * FROM articles
            WHERE curated = 1 AND sent = 0
-           ORDER BY relevance_score DESC
-           LIMIT ?""",
-        (limit,),
+           ORDER BY CASE WHEN final_score > 0 THEN final_score ELSE relevance_score END DESC"""
     ).fetchall()
     conn.close()
-    return [_row_to_article(r) for r in rows]
+
+    all_articles = [_row_to_article(r) for r in rows]
+    if not all_articles:
+        return []
+
+    paper_sources = {"Hugging Face Papers", "arXiv"}
+    expert_prefixes = ("Bluesky @",)
+    expert_feeds = {
+        "karpathy.substack.com", "drfeifei.substack.com",
+        "interconnects.ai", "simonwillison.net",
+        "lilianweng.github.io", "lexfridman.com",
+    }
+
+    def _is_paper(a: Article) -> bool:
+        return a.source in paper_sources
+
+    def _is_expert(a: Article) -> bool:
+        if any(a.source.startswith(p) for p in expert_prefixes):
+            return True
+        return any(feed in a.source.lower() for feed in expert_feeds)
+
+    selected: list[Article] = []
+    selected_urls: set[str] = set()
+    source_counts: dict[str, int] = {}
+
+    def _can_add(a: Article) -> bool:
+        if a.url in selected_urls:
+            return False
+        if source_counts.get(a.source, 0) >= max_same_source:
+            return False
+        return True
+
+    def _add(a: Article) -> None:
+        selected.append(a)
+        selected_urls.add(a.url)
+        source_counts[a.source] = source_counts.get(a.source, 0) + 1
+
+    # 1. Reserve top article for Signal
+    if all_articles:
+        _add(all_articles[0])
+
+    # 2. Fill paper slots
+    papers_added = sum(1 for a in selected if _is_paper(a))
+    for a in all_articles:
+        if papers_added >= min_papers:
+            break
+        if _is_paper(a) and _can_add(a):
+            _add(a)
+            papers_added += 1
+
+    # 3. Fill expert slots
+    experts_added = sum(1 for a in selected if _is_expert(a))
+    for a in all_articles:
+        if experts_added >= min_expert:
+            break
+        if _is_expert(a) and _can_add(a):
+            _add(a)
+            experts_added += 1
+
+    # 4. Fill remainder by score
+    for a in all_articles:
+        if len(selected) >= limit:
+            break
+        if _can_add(a):
+            _add(a)
+
+    if papers_added < min_papers:
+        _logger.info(f"Diversity: only {papers_added}/{min_papers} papers available")
+    if experts_added < min_expert:
+        _logger.info(f"Diversity: only {experts_added}/{min_expert} expert posts available")
+
+    return selected
 
 
 def update_article_curation(
@@ -288,13 +387,24 @@ def update_article_curation(
     summary: str,
     category: str,
     relevance_score: float,
+    impact_score: float = 0.0,
+    actionability_score: float = 0.0,
+    source_quality_score: float = 0.0,
+    recency_bonus: float = 0.0,
+    final_score: float = 0.0,
 ) -> None:
     conn = get_connection(db_path)
     conn.execute(
         """UPDATE articles
-           SET summary = ?, category = ?, relevance_score = ?, curated = 1
+           SET summary = ?, category = ?, relevance_score = ?,
+               impact_score = ?, actionability_score = ?,
+               source_quality_score = ?, recency_bonus = ?,
+               final_score = ?, curated = 1
            WHERE url = ?""",
-        (summary, category, relevance_score, url),
+        (summary, category, relevance_score,
+         impact_score, actionability_score,
+         source_quality_score, recency_bonus,
+         final_score, url),
     )
     conn.commit()
     conn.close()
@@ -703,15 +813,21 @@ def get_pipeline_runs(db_path: str, limit: int = 20) -> list[dict]:
 
 
 def _row_to_article(row: sqlite3.Row) -> Article:
+    d = dict(row)
     return Article(
-        url=row["url"],
-        title=row["title"],
-        source=row["source"],
-        raw_content=row["raw_content"],
-        summary=row["summary"],
-        category=row["category"],
-        relevance_score=row["relevance_score"],
-        collected_at=datetime.fromisoformat(row["collected_at"]),
-        curated=bool(row["curated"]),
-        sent=bool(row["sent"]),
+        url=d["url"],
+        title=d["title"],
+        source=d["source"],
+        raw_content=d["raw_content"],
+        summary=d["summary"],
+        category=d["category"],
+        relevance_score=d["relevance_score"],
+        impact_score=d.get("impact_score", 0.0),
+        actionability_score=d.get("actionability_score", 0.0),
+        source_quality_score=d.get("source_quality_score", 0.0),
+        recency_bonus=d.get("recency_bonus", 0.0),
+        final_score=d.get("final_score", 0.0),
+        collected_at=datetime.fromisoformat(d["collected_at"]),
+        curated=bool(d["curated"]),
+        sent=bool(d["sent"]),
     )

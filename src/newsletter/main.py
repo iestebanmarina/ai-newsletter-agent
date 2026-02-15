@@ -9,7 +9,9 @@ from pathlib import Path
 
 import schedule
 
+from .collectors.bluesky import BlueskyCollector
 from .collectors.google_news import GoogleNewsCollector
+from .collectors.huggingface import HuggingFaceCollector
 from .collectors.reddit import RedditCollector
 from .collectors.rss import RSSCollector
 from .collectors.scraper import scrape_article_content
@@ -117,6 +119,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
 
         collectors = [
             RSSCollector(feed_urls=settings.rss_feeds),
+            RSSCollector(feed_urls=settings.expert_rss_feeds),
             GoogleNewsCollector(queries=settings.google_news_queries),
             RedditCollector(
                 client_id=settings.reddit_client_id,
@@ -125,6 +128,10 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
                 subreddits=settings.reddit_subreddits,
             ),
         ]
+        if settings.huggingface_enabled:
+            collectors.append(HuggingFaceCollector(feed_url=settings.huggingface_feed_url))
+        if settings.bluesky_enabled:
+            collectors.append(BlueskyCollector(handles=settings.bluesky_handles))
 
         for collector in collectors:
             try:
@@ -169,6 +176,11 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
                         summary=article.summary,
                         category=article.category,
                         relevance_score=article.relevance_score,
+                        impact_score=article.impact_score,
+                        actionability_score=article.actionability_score,
+                        source_quality_score=article.source_quality_score,
+                        recency_bonus=article.recency_bonus,
+                        final_score=article.final_score,
                     )
                     curated_count += 1
             logger.info(f"Curated {curated_count} articles")
@@ -179,7 +191,11 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
         # Step 4: Select top articles
         logger.info("=== Step 4: Selecting top articles ===")
         top_articles = get_articles_for_newsletter(
-            db_path, limit=settings.max_articles_per_newsletter
+            db_path,
+            limit=settings.max_articles_per_newsletter,
+            max_same_source=settings.max_articles_same_source,
+            min_papers=settings.min_papers_per_newsletter,
+            min_expert=settings.min_expert_per_newsletter,
         )
         logger.info(f"Selected {len(top_articles)} articles for newsletter")
 

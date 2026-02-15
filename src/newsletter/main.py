@@ -300,19 +300,35 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
                 )
                 logger.info(f"Preview sent: {email_result['sent']} ok, {email_result['failed']} failed")
         elif dry_run:
-            logger.info("=== Dry run: skipping email send ===")
-            # Save to archive even in dry-run
+            logger.info("=== Dry run: saving as pending ===")
             nl_id = save_pending_newsletter(
                 db_path, run_id, subject, newsletter.html_content,
                 json_data=newsletter.json_data,
             )
             if linkedin_post:
                 save_linkedin_post(db_path, nl_id, linkedin_post)
-            mark_newsletter_sent(db_path, nl_id)
-            logger.info(f"Newsletter archived (id={nl_id})")
+            logger.info(f"Newsletter saved as pending (id={nl_id})")
             # Backup existing history for safety
             backup_path = backup_history(db_path)
             logger.info(f"History backup saved to {backup_path}")
+            # Send test email to review address
+            review_email = settings.review_email
+            if not review_email:
+                logger.warning("REVIEW_EMAIL not set, skipping test send")
+            else:
+                logger.info(f"Sending test email to {review_email}")
+                test_subject = f"[TEST] {subject}"
+                email_result = send_newsletter(
+                    html_content=newsletter.html_content,
+                    from_email=settings.newsletter_from_email,
+                    subscribers=[review_email],
+                    api_key=settings.resend_api_key,
+                    base_url=settings.base_url,
+                    db_path=db_path,
+                    pipeline_run_id=run_id,
+                    subject=test_subject,
+                )
+                logger.info(f"Test email sent: {email_result['sent']} ok, {email_result['failed']} failed")
         else:
             # Full mode: send to all subscribers
             logger.info("=== Step 6: Sending newsletter ===")

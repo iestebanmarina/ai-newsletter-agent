@@ -55,7 +55,7 @@ src/newsletter/
 uv run newsletter --serve          # Web server + scheduler on port 8080
 uv run newsletter --preview        # Generate newsletter, send preview to REVIEW_EMAIL
 uv run newsletter --send-pending   # Send latest pending newsletter to all subscribers
-uv run newsletter --dry-run        # Full pipeline without sending email (saves to pending, not history)
+uv run newsletter --dry-run        # Full pipeline, saves as pending, sends [TEST] email to REVIEW_EMAIL
 uv run newsletter --schedule       # Run scheduler only (no web server)
 uv run newsletter                  # Full pipeline: collect, curate, generate, send to all
 
@@ -95,13 +95,14 @@ Does NOT generate anything. Only sends what was already created by preview.
 
 ### dry-run (`--dry-run` or dashboard "Dry Run" button)
 
-Runs the full generation pipeline without sending emails. For testing.
+Runs the full generation pipeline for testing. Saves as pending and sends a test email.
 
 1. Steps 1-6 same as preview (collect, scrape, curate, select, generate, LinkedIn)
-2. Save to `pending_newsletters` and immediately mark as 'sent' (archived)
+2. Save to `pending_newsletters` as status='pending' (viewable, editable, deletable in dashboard)
 3. Save a backup of `newsletter_history` to `newsletter_history_backup_YYYYMMDD_HHMMSS.json`
+4. Send `[TEST]` email to `REVIEW_EMAIL`
 
-Does NOT save to `newsletter_history`. Does NOT send emails.
+Does NOT save to `newsletter_history`.
 
 ### full (`uv run newsletter` without flags)
 

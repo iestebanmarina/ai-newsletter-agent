@@ -29,6 +29,7 @@ from .db import (
     get_subscriber_list,
     get_subscriber_growth,
     get_subscriber_stats,
+    requeue_newsletter,
     init_db,
     remove_subscriber,
     update_newsletter_html,
@@ -255,6 +256,20 @@ async def api_delete_pending_newsletter(
     if not deleted:
         return JSONResponse(status_code=404, content={"ok": False, "message": "Newsletter not found or already sent"})
     return {"ok": True}
+
+
+@app.post("/api/dashboard/pending-newsletters/{newsletter_id}/requeue")
+async def api_requeue_newsletter(
+    newsletter_id: str,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    requeued = requeue_newsletter(settings.database_path, newsletter_id)
+    if not requeued:
+        return JSONResponse(status_code=404, content={"ok": False, "message": "Newsletter not found or not in sent status"})
+    return {"ok": True, "message": "Newsletter moved back to pending"}
 
 
 class EditNewsletterRequest(BaseModel):

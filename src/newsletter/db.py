@@ -516,6 +516,20 @@ def delete_pending_newsletter(db_path: str, newsletter_id: str) -> bool:
         conn.close()
 
 
+def requeue_newsletter(db_path: str, newsletter_id: str) -> bool:
+    """Change a sent newsletter back to pending. Returns True if updated."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            "UPDATE pending_newsletters SET status = 'pending', sent_at = NULL WHERE id = ? AND status = 'sent'",
+            (newsletter_id,),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
 def update_newsletter_html(db_path: str, newsletter_id: str, html_content: str) -> bool:
     """Update HTML content of a pending newsletter. Returns True if updated."""
     conn = get_connection(db_path)

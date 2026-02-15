@@ -21,11 +21,11 @@ from .db import (
     get_article_stats,
     get_email_stats,
     get_history_entries,
+    get_history_for_landing,
     get_linkedin_post,
     get_newsletter_by_id,
     get_pending_newsletters,
     get_pipeline_runs,
-    get_sent_newsletters,
     get_subscriber_list,
     get_subscriber_stats,
     init_db,
@@ -84,7 +84,7 @@ EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 @app.get("/", response_class=HTMLResponse)
 async def landing():
     template = jinja_env.get_template("landing.html")
-    newsletters = get_sent_newsletters(settings.database_path, limit=5)
+    newsletters = get_history_for_landing(settings.database_path, limit=5)
     return template.render(newsletters=newsletters)
 
 

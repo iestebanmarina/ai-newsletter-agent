@@ -546,6 +546,24 @@ def get_history_entries(db_path: str) -> list[dict]:
         conn.close()
 
 
+def get_history_for_landing(db_path: str, limit: int = 5) -> list[dict]:
+    """Get recent history entries with summary data for the public landing page."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """SELECT id, edition_date, subject_line, signal_topic,
+                      translate_concept, before_after_task, challenge_topic,
+                      challenge_week_number
+               FROM newsletter_history ORDER BY id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()
+
+
 def delete_history_entry(db_path: str, history_id: int) -> bool:
     """Delete a history entry by id. Returns True if deleted."""
     conn = get_connection(db_path)

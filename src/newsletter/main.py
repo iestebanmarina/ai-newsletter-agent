@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 import sys
@@ -35,7 +36,7 @@ from .db import (
     update_article_curation,
     update_pipeline_run,
 )
-from .db import backup_history
+from .db import backup_history, get_history, save_to_history
 from .emailer import send_newsletter
 from .generator import generate_newsletter
 from .generator import set_pipeline_context as set_generator_context
@@ -110,6 +111,15 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
 
         if email_result["sent"] > 0:
             mark_newsletter_sent(db_path, pending["id"])
+            # Save to history now that the newsletter has been sent to subscribers
+            try:
+                data = json.loads(pending.get("json_data", "{}"))
+                history = get_history(db_path)
+                week_number = len(history) + 1
+                save_to_history(db_path, data, week_number)
+                logger.info(f"Saved edition #{week_number} to history")
+            except Exception:
+                logger.exception("Failed to save to history")
             logger.info(f"Newsletter sent: {email_result['sent']} ok, {email_result['failed']} failed")
         else:
             logger.error("Newsletter sending failed")
@@ -236,7 +246,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
             api_key=settings.anthropic_api_key,
             model=settings.claude_model,
             db_path=db_path,
-            save_history=(mode != "preview"),
+            save_history=False,
             edition_date=edition_date,
         )
 
@@ -302,7 +312,7 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
                 save_linkedin_post(db_path, nl_id, linkedin_post)
             mark_newsletter_sent(db_path, nl_id)
             logger.info(f"Newsletter archived (id={nl_id})")
-            # Backup history after dry-run (includes the new entry)
+            # Backup existing history for safety
             backup_path = backup_history(db_path)
             logger.info(f"History backup saved to {backup_path}")
         else:
@@ -338,6 +348,15 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
                 if linkedin_post:
                     save_linkedin_post(db_path, nl_id, linkedin_post)
                 mark_newsletter_sent(db_path, nl_id)
+                # Save to history now that the newsletter has been sent to subscribers
+                try:
+                    data = json.loads(newsletter.json_data)
+                    history = get_history(db_path)
+                    week_number = len(history) + 1
+                    save_to_history(db_path, data, week_number)
+                    logger.info(f"Saved edition #{week_number} to history")
+                except Exception:
+                    logger.exception("Failed to save to history")
                 logger.info(f"Newsletter sent and archived (id={nl_id}): {email_result['sent']} ok, {email_result['failed']} failed")
             else:
                 logger.error("Newsletter sending failed")

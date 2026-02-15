@@ -498,6 +498,17 @@
     </div>
   </div>
 
+  <!-- Edition History -->
+  <div class="section">
+    <h2>Edition History</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Date</th><th>Subject</th><th>Signal</th><th>Translate</th><th>Actions</th></tr></thead>
+        <tbody id="tableHistory"><tr><td colspan="6">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Pipeline runs -->
   <div class="section">
     <h2>Pipeline Runs</h2>
@@ -533,6 +544,25 @@
     <div class="modal-actions">
       <button class="btn btn-blue" onclick="copyLinkedIn()">Copy</button>
       <button class="btn btn-outline" onclick="closeLinkedIn()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editModal" onclick="closeEdit(event)">
+  <div class="modal">
+    <h3>Edit Edition</h3>
+    <input type="hidden" id="editId">
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Edition Number</label>
+      <input type="number" id="editEdition" min="1" style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Edition Date</label>
+      <input type="text" id="editDate" placeholder="February 16, 2026" style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveEdit()">Save</button>
+      <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
     </div>
   </div>
 </div>
@@ -644,6 +674,7 @@
         + '<td>' + fmtDate(r.created_at) + '</td>'
         + '<td><a href="/newsletter/' + encodeURIComponent(r.id) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">View</a>'
         + ' &middot; <a href="#" onclick="viewLinkedIn(\'' + esc(r.id) + '\');return false;" style="color:#60a5fa;text-decoration:none;">LinkedIn</a>'
+        + ' &middot; <a href="#" onclick="editPending(\'' + esc(r.id) + '\');return false;" style="color:#34d399;text-decoration:none;">Edit</a>'
         + ' &middot; <a href="#" onclick="deletePending(\'' + esc(r.id) + '\');return false;" style="color:#f87171;text-decoration:none;">Delete</a></td>'
         + '</tr>';
     });
@@ -677,6 +708,23 @@
     return d.innerHTML;
   }
 
+  async function loadHistory() {
+    var data = await fetchJson('/api/dashboard/newsletter-history');
+    if (!data) return;
+    var html = '';
+    (data || []).forEach(function(r, i) {
+      html += '<tr>'
+        + '<td>' + (i + 1) + '</td>'
+        + '<td>' + esc(r.edition_date) + '</td>'
+        + '<td>' + esc(r.subject_line || '') + '</td>'
+        + '<td>' + esc(r.signal_topic || '') + '</td>'
+        + '<td>' + esc(r.translate_concept || '') + '</td>'
+        + '<td><a href="#" onclick="deleteHistory(' + r.id + ');return false;" style="color:#f87171;text-decoration:none;">Delete</a></td>'
+        + '</tr>';
+    });
+    $('tableHistory').innerHTML = html || '<tr><td colspan="6">No history entries</td></tr>';
+  }
+
   window.loadAll = function() {
     loadSubscribers();
     loadArticles();
@@ -684,6 +732,7 @@
     loadEmails();
     loadPending();
     loadPipelineRuns();
+    loadHistory();
     $('lastRefresh').textContent = new Date().toLocaleTimeString();
   };
 
@@ -700,6 +749,60 @@
       }
     } catch(e) {
       showToast('Error deleting newsletter');
+    }
+  };
+
+  window.editPending = function(id) {
+    $('editId').value = id;
+    $('editEdition').value = '';
+    $('editDate').value = '';
+    $('editModal').classList.add('show');
+    $('editEdition').focus();
+  };
+
+  window.saveEdit = async function() {
+    var id = $('editId').value;
+    var num = parseInt($('editEdition').value, 10);
+    var date = $('editDate').value.trim();
+    if (!num || num < 1) { showToast('Enter a valid edition number'); return; }
+    if (!date) { showToast('Enter an edition date'); return; }
+    try {
+      var res = await fetch('/api/dashboard/pending-newsletters/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({edition_number: num, edition_date: date})
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showToast(data.message || 'Updated');
+        $('editModal').classList.remove('show');
+        loadPending();
+      } else {
+        showToast(data.message || 'Failed to update');
+      }
+    } catch(e) {
+      showToast('Error updating newsletter');
+    }
+  };
+
+  window.closeEdit = function(e) {
+    if (e && e.target !== $('editModal')) return;
+    $('editModal').classList.remove('show');
+  };
+
+  window.deleteHistory = async function(id) {
+    if (!confirm('Delete this history entry? This will affect edition numbering for future newsletters.')) return;
+    try {
+      var res = await fetch('/api/dashboard/newsletter-history/' + id, {method: 'DELETE'});
+      var data = await res.json();
+      if (res.ok) {
+        showToast('History entry deleted');
+        loadHistory();
+      } else {
+        showToast(data.message || 'Failed to delete');
+      }
+    } catch(e) {
+      showToast('Error deleting history entry');
     }
   };
 

@@ -9,7 +9,6 @@ from jinja2 import Environment, FileSystemLoader
 from .db import (
     build_history_context,
     get_history,
-    init_history_table,
     log_api_usage,
     save_to_history,
 )
@@ -189,15 +188,14 @@ def generate_newsletter(
     """Generate a complete newsletter using the 6-section Knowledge in Chain format.
 
     Args:
-        save_history: If False, don't save to history (for preview/dry-run).
+        save_history: If False, don't save to history (for preview mode).
         edition_date: Date string for the newsletter header (e.g. "February 17, 2026").
                       Defaults to UTC today if empty.
     """
     effective_db_path = db_path or _current_db_path
 
-    # Init history table and load history context
+    # Load history context
     if effective_db_path:
-        init_history_table(effective_db_path)
         history = get_history(effective_db_path)
     else:
         history = []
@@ -218,7 +216,7 @@ def generate_newsletter(
     data = _generate_content(client, model, articles_for_prompt, history_context, week_number, edition_date)
 
     # Render HTML via Jinja2 template
-    html = _render_html(data, week_number, edition_date)
+    html = render_html(data, week_number, edition_date)
 
     # Save to history for cross-edition memory (skip in preview/dry-run)
     if save_history and effective_db_path:
@@ -332,7 +330,7 @@ def _generate_content(
         raise
 
 
-def _render_html(data: dict, week_number: int, edition_date: str = "") -> str:
+def render_html(data: dict, week_number: int, edition_date: str = "") -> str:
     """Render the newsletter HTML using the Jinja2 template."""
     env = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),

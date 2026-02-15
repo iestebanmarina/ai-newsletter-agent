@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 import secrets
@@ -14,10 +15,12 @@ from pydantic import BaseModel
 from .config import settings
 from .db import (
     add_subscriber,
+    delete_history_entry,
     delete_pending_newsletter,
     get_api_usage_stats,
     get_article_stats,
     get_email_stats,
+    get_history_entries,
     get_linkedin_post,
     get_newsletter_by_id,
     get_pending_newsletters,
@@ -26,7 +29,9 @@ from .db import (
     get_subscriber_stats,
     init_db,
     remove_subscriber,
+    update_newsletter_html,
 )
+from .generator import render_html
 from . import main as main_module
 from .main import run_pipeline, start_scheduler_thread
 
@@ -222,6 +227,56 @@ async def api_delete_pending_newsletter(
     deleted = delete_pending_newsletter(settings.database_path, newsletter_id)
     if not deleted:
         return JSONResponse(status_code=404, content={"ok": False, "message": "Newsletter not found or already sent"})
+    return {"ok": True}
+
+
+class EditNewsletterRequest(BaseModel):
+    edition_number: int
+    edition_date: str
+
+
+@app.patch("/api/dashboard/pending-newsletters/{newsletter_id}")
+async def api_edit_pending_newsletter(
+    newsletter_id: str,
+    req: EditNewsletterRequest,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    newsletter = get_newsletter_by_id(settings.database_path, newsletter_id)
+    if newsletter is None or newsletter["status"] != "pending":
+        return JSONResponse(status_code=404, content={"ok": False, "message": "Newsletter not found or already sent"})
+    try:
+        data = json.loads(newsletter["json_data"])
+    except (json.JSONDecodeError, TypeError):
+        return JSONResponse(status_code=400, content={"ok": False, "message": "Newsletter has no valid JSON data"})
+    new_html = render_html(data, req.edition_number, req.edition_date)
+    updated = update_newsletter_html(settings.database_path, newsletter_id, new_html)
+    if not updated:
+        return JSONResponse(status_code=500, content={"ok": False, "message": "Failed to update newsletter"})
+    return {"ok": True, "message": f"Updated to Edition #{req.edition_number}"}
+
+
+@app.get("/api/dashboard/newsletter-history")
+async def api_newsletter_history(dashboard_token: str | None = Cookie(default=None)):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    return get_history_entries(settings.database_path)
+
+
+@app.delete("/api/dashboard/newsletter-history/{history_id}")
+async def api_delete_history(
+    history_id: int,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    deleted = delete_history_entry(settings.database_path, history_id)
+    if not deleted:
+        return JSONResponse(status_code=404, content={"ok": False, "message": "History entry not found"})
     return {"ok": True}
 
 

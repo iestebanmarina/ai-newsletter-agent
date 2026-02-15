@@ -10,30 +10,6 @@ from .models import Article
 # Newsletter history (cross-edition memory)
 # ---------------------------------------------------------------------------
 
-def init_history_table(db_path: str) -> None:
-    conn = get_connection(db_path)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS newsletter_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            edition_date TEXT NOT NULL,
-            subject_line TEXT,
-            signal_topic TEXT,
-            signal_url TEXT,
-            translate_concept TEXT,
-            use_this_topic TEXT,
-            use_this_difficulty TEXT,
-            before_after_task TEXT,
-            challenge_topic TEXT,
-            challenge_difficulty TEXT,
-            challenge_week_number INTEGER,
-            radar_urls TEXT DEFAULT '[]',
-            full_json TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-
 def get_history(db_path: str) -> list[dict]:
     conn = get_connection(db_path)
     try:
@@ -85,6 +61,27 @@ def save_to_history(db_path: str, data: dict, week_number: int) -> None:
     )
     conn.commit()
     conn.close()
+
+
+def backup_history(db_path: str, output_path: str = "") -> str:
+    """Export newsletter_history to a local JSON file. Returns the file path."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM newsletter_history ORDER BY id ASC").fetchall()
+        entries = [dict(r) for r in rows]
+    except Exception:
+        entries = []
+    finally:
+        conn.close()
+
+    if not output_path:
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        output_path = f"newsletter_history_backup_{ts}.json"
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(entries, f, ensure_ascii=False, indent=2)
+
+    return output_path
 
 
 def build_history_context(history: list[dict]) -> str:
@@ -230,24 +227,6 @@ def init_db(db_path: str) -> None:
             error_message TEXT DEFAULT ''
         )
     """)
-    # One-time cleanup: remove history entries from preview runs that never sent
-    try:
-        sent_count = conn.execute(
-            "SELECT COUNT(*) FROM pending_newsletters WHERE status = 'sent'"
-        ).fetchone()[0]
-        history_count = conn.execute(
-            "SELECT COUNT(*) FROM newsletter_history"
-        ).fetchone()[0]
-        if history_count > sent_count:
-            excess = history_count - sent_count
-            conn.execute(
-                "DELETE FROM newsletter_history WHERE id IN "
-                "(SELECT id FROM newsletter_history ORDER BY id DESC LIMIT ?)",
-                (excess,),
-            )
-    except Exception:
-        pass  # Table may not exist yet on first run
-
     conn.commit()
     conn.close()
 
@@ -530,6 +509,50 @@ def delete_pending_newsletter(db_path: str, newsletter_id: str) -> bool:
         cursor = conn.execute(
             "DELETE FROM pending_newsletters WHERE id = ? AND status = 'pending'",
             (newsletter_id,),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def update_newsletter_html(db_path: str, newsletter_id: str, html_content: str) -> bool:
+    """Update HTML content of a pending newsletter. Returns True if updated."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            "UPDATE pending_newsletters SET html_content = ? WHERE id = ? AND status = 'pending'",
+            (html_content, newsletter_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def get_history_entries(db_path: str) -> list[dict]:
+    """Get all history entries with id and key columns for dashboard display."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """SELECT id, edition_date, subject_line, signal_topic,
+                      translate_concept, challenge_topic
+               FROM newsletter_history ORDER BY id ASC"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()
+
+
+def delete_history_entry(db_path: str, history_id: int) -> bool:
+    """Delete a history entry by id. Returns True if deleted."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            "DELETE FROM newsletter_history WHERE id = ?",
+            (history_id,),
         )
         conn.commit()
         return cursor.rowcount > 0

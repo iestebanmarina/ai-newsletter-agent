@@ -35,10 +35,11 @@ from .db import (
     update_article_curation,
     update_pipeline_run,
 )
-from .db import save_to_history, init_history_table
+from .db import backup_history
 from .emailer import send_newsletter
 from .generator import generate_newsletter
 from .generator import set_pipeline_context as set_generator_context
+from .linkedin import generate_linkedin_post
 
 
 def _next_send_date() -> str:
@@ -56,7 +57,6 @@ def _next_send_date() -> str:
         days_ahead = 7  # Today is send day but already past send time
     send_date = today + timedelta(days=days_ahead)
     return send_date.strftime("%B %d, %Y")
-from .linkedin import generate_linkedin_post
 
 logging.basicConfig(
     level=logging.INFO,
@@ -230,14 +230,13 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
 
         # Step 5: Generate newsletter
         logger.info("=== Step 5: Generating newsletter ===")
-        is_actual_send = (mode == "full" and not dry_run)
         edition_date = _next_send_date()
         newsletter = generate_newsletter(
             top_articles,
             api_key=settings.anthropic_api_key,
             model=settings.claude_model,
             db_path=db_path,
-            save_history=is_actual_send,
+            save_history=(mode != "preview"),
             edition_date=edition_date,
         )
 
@@ -303,6 +302,9 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
                 save_linkedin_post(db_path, nl_id, linkedin_post)
             mark_newsletter_sent(db_path, nl_id)
             logger.info(f"Newsletter archived (id={nl_id})")
+            # Backup history after dry-run (includes the new entry)
+            backup_path = backup_history(db_path)
+            logger.info(f"History backup saved to {backup_path}")
         else:
             # Full mode: send to all subscribers
             logger.info("=== Step 6: Sending newsletter ===")

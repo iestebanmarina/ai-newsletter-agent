@@ -426,7 +426,7 @@
 
   <!-- KPI Cards -->
   <div class="kpi-grid">
-    <div class="kpi-card">
+    <div class="kpi-card" onclick="openSubscriberCharts()" style="cursor:pointer;" title="Click to view growth charts">
       <div class="label">Subscribers</div>
       <div class="value" id="kpiSubscribers">-</div>
       <div class="sub" id="kpiSubNew"></div>
@@ -574,6 +574,27 @@
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="saveEdit()">Save</button>
       <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="subscriberModal" onclick="closeSubscriberModal(event)">
+  <div class="modal" style="max-width:720px;">
+    <h3 style="color:#f59e0b;">Subscriber Growth</h3>
+    <div style="margin-bottom:24px;">
+      <div style="font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Weekly (last 12 weeks)</div>
+      <div id="chartWeekly" style="background:#000;border:1px solid #1a1a1a;border-radius:6px;padding:16px;min-height:180px;display:flex;align-items:center;justify-content:center;">
+        <span style="color:#404040;font-size:13px;">Loading...</span>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Monthly (last 12 months)</div>
+      <div id="chartMonthly" style="background:#000;border:1px solid #1a1a1a;border-radius:6px;padding:16px;min-height:180px;display:flex;align-items:center;justify-content:center;">
+        <span style="color:#404040;font-size:13px;">Loading...</span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeSubscriberModal()">Close</button>
     </div>
   </div>
 </div>
@@ -877,6 +898,97 @@
   window.closeLinkedIn = function(e) {
     if (e && e.target !== $('linkedinModal')) return;
     $('linkedinModal').classList.remove('show');
+  };
+
+  // --- Subscriber growth charts ---
+  function renderChart(containerId, data, label) {
+    var container = $(containerId);
+    if (!data || data.length === 0) {
+      container.innerHTML = '<span style="color:#404040;font-size:13px;">No data yet</span>';
+      return;
+    }
+
+    var maxVal = Math.max.apply(null, data.map(function(d) { return d.total; }));
+    if (maxVal === 0) maxVal = 1;
+
+    var w = 640, h = 160;
+    var padL = 8, padR = 8, padT = 24, padB = 32;
+    var chartW = w - padL - padR;
+    var chartH = h - padT - padB;
+    var n = data.length;
+    var step = n > 1 ? chartW / (n - 1) : 0;
+
+    var points = data.map(function(d, i) {
+      var x = padL + i * step;
+      var y = padT + chartH - (d.total / maxVal) * chartH;
+      return {x: x, y: y, total: d.total, period: d.period};
+    });
+
+    // Build polygon points for filled area
+    var polyPts = points.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+    polyPts += ' ' + points[points.length - 1].x + ',' + (padT + chartH);
+    polyPts += ' ' + points[0].x + ',' + (padT + chartH);
+
+    var linePts = points.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+
+    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;" xmlns="http://www.w3.org/2000/svg">';
+
+    // Max value label
+    svg += '<text x="' + padL + '" y="' + (padT - 8) + '" fill="#525252" font-size="11" font-family="JetBrains Mono,monospace">' + maxVal + '</text>';
+
+    // Baseline
+    svg += '<line x1="' + padL + '" y1="' + (padT + chartH) + '" x2="' + (padL + chartW) + '" y2="' + (padT + chartH) + '" stroke="#1a1a1a" stroke-width="1"/>';
+
+    // Filled area
+    svg += '<polygon points="' + polyPts + '" fill="rgba(245,158,11,0.15)"/>';
+
+    // Line
+    svg += '<polyline points="' + linePts + '" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+
+    // Data points and x-axis labels
+    var labelStep = n <= 12 ? 1 : Math.ceil(n / 12);
+    for (var i = 0; i < points.length; i++) {
+      var p = points[i];
+      // Dot
+      svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="3" fill="#0a0a0a" stroke="#f59e0b" stroke-width="1.5" opacity="0.5">';
+      svg += '<title>' + esc(p.period) + ': ' + p.total + '</title>';
+      svg += '</circle>';
+      // Hover dot (larger invisible target)
+      svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="10" fill="transparent" style="cursor:pointer;">';
+      svg += '<title>' + esc(p.period) + ': ' + p.total + '</title>';
+      svg += '</circle>';
+      // X-axis label
+      if (i % labelStep === 0) {
+        svg += '<text x="' + p.x + '" y="' + (padT + chartH + 18) + '" fill="#404040" font-size="10" font-family="JetBrains Mono,monospace" text-anchor="middle">' + esc(p.period) + '</text>';
+      }
+    }
+
+    svg += '</svg>';
+    container.innerHTML = svg;
+  }
+
+  window.openSubscriberCharts = async function() {
+    $('subscriberModal').classList.add('show');
+    $('chartWeekly').innerHTML = '<span style="color:#404040;font-size:13px;">Loading...</span>';
+    $('chartMonthly').innerHTML = '<span style="color:#404040;font-size:13px;">Loading...</span>';
+    try {
+      var data = await fetchJson('/api/dashboard/subscribers/growth');
+      if (!data) {
+        $('chartWeekly').innerHTML = '<span style="color:#404040;font-size:13px;">Failed to load data</span>';
+        $('chartMonthly').innerHTML = '<span style="color:#404040;font-size:13px;">Failed to load data</span>';
+        return;
+      }
+      renderChart('chartWeekly', data.weekly, 'Weekly');
+      renderChart('chartMonthly', data.monthly, 'Monthly');
+    } catch(e) {
+      $('chartWeekly').innerHTML = '<span style="color:#404040;font-size:13px;">Error loading charts</span>';
+      $('chartMonthly').innerHTML = '';
+    }
+  };
+
+  window.closeSubscriberModal = function(e) {
+    if (e && e.target !== $('subscriberModal')) return;
+    $('subscriberModal').classList.remove('show');
   };
 
   // Initial load

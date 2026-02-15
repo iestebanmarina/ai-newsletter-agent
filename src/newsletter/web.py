@@ -27,6 +27,7 @@ from .db import (
     get_pending_newsletters,
     get_pipeline_runs,
     get_subscriber_list,
+    get_subscriber_growth,
     get_subscriber_stats,
     init_db,
     remove_subscriber,
@@ -184,6 +185,14 @@ async def api_subscribers(dashboard_token: str | None = Cookie(default=None)):
     if err:
         return err
     return get_subscriber_stats(settings.database_path)
+
+
+@app.get("/api/dashboard/subscribers/growth")
+async def api_subscriber_growth(dashboard_token: str | None = Cookie(default=None)):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    return get_subscriber_growth(settings.database_path)
 
 
 @app.get("/api/dashboard/subscribers/list")

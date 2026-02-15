@@ -683,6 +683,55 @@ def get_subscriber_list(db_path: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_subscriber_growth(db_path: str) -> dict:
+    """Get cumulative subscriber totals for the last 12 weeks and 12 months."""
+    conn = get_connection(db_path)
+    now = datetime.utcnow()
+
+    # Weekly: last 12 weeks, each ending on Sunday
+    weekly = []
+    for i in range(11, -1, -1):
+        end = now - timedelta(weeks=i)
+        count = conn.execute(
+            "SELECT COUNT(*) FROM subscribers WHERE subscribed_at <= ?",
+            (end.isoformat(),),
+        ).fetchone()[0]
+        weekly.append({"period": end.strftime("%b %d"), "total": count})
+
+    # Monthly: last 12 months, each at month end
+    monthly = []
+    for i in range(11, -1, -1):
+        # Go back i months from current month
+        y = now.year
+        m = now.month - i
+        while m <= 0:
+            m += 12
+            y -= 1
+        # End of that month = start of next month
+        nm = m + 1
+        ny = y
+        if nm > 12:
+            nm = 1
+            ny += 1
+        end = datetime(ny, nm, 1)
+        count = conn.execute(
+            "SELECT COUNT(*) FROM subscribers WHERE subscribed_at < ?",
+            (end.isoformat(),),
+        ).fetchone()[0]
+        monthly.append({"period": end.strftime("%b %Y"), "total": count})
+
+    # For the current month, use now instead of month-end
+    if monthly:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM subscribers WHERE subscribed_at <= ?",
+            (now.isoformat(),),
+        ).fetchone()[0]
+        monthly[-1]["total"] = count
+
+    conn.close()
+    return {"weekly": weekly, "monthly": monthly}
+
+
 def remove_subscriber(db_path: str, email: str) -> bool:
     """Mark a subscriber as inactive. Returns True if found and deactivated."""
     conn = get_connection(db_path)

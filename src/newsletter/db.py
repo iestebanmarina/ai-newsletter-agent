@@ -301,12 +301,24 @@ def get_articles_for_newsletter(
     _logger = logging.getLogger(__name__)
 
     conn = get_connection(db_path)
+
+    # Debug: check article counts by status
+    total = conn.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
+    curated_unsent = conn.execute(
+        "SELECT COUNT(*) FROM articles WHERE curated = 1 AND sent = 0"
+    ).fetchone()[0]
+    _logger.info(
+        f"Article selection: {total} total, {curated_unsent} curated+unsent in DB"
+    )
+
     rows = conn.execute(
         """SELECT * FROM articles
            WHERE curated = 1 AND sent = 0
            ORDER BY CASE WHEN final_score > 0 THEN final_score ELSE relevance_score END DESC"""
     ).fetchall()
     conn.close()
+
+    _logger.info(f"Article selection: SQL returned {len(rows)} rows")
 
     all_articles = [_row_to_article(r) for r in rows]
     if not all_articles:
@@ -378,6 +390,10 @@ def get_articles_for_newsletter(
     if experts_added < min_expert:
         _logger.info(f"Diversity: only {experts_added}/{min_expert} expert posts available")
 
+    _logger.info(
+        f"Article selection: {len(selected)} selected from {len(all_articles)} candidates "
+        f"(sources: {dict(source_counts)})"
+    )
     return selected
 
 

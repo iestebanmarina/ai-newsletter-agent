@@ -2,7 +2,21 @@
 
 ## Overview
 
-Automated weekly AI newsletter system. Collects articles from RSS/Google News/Reddit/HuggingFace/Bluesky, curates with Claude, generates a structured 6-section newsletter (Signal, Radar, Translate, Use This, Before→After, Challenge), and sends via Resend email API. Includes a FastAPI web server with public landing page, admin dashboard, and scheduled pipeline automation.
+Automated weekly AI newsletter system. Collects articles from RSS/Google News/Reddit/HuggingFace/Bluesky, curates with Claude, generates a structured 6-section newsletter, and sends via Resend email API. Includes a FastAPI web server with public landing page, admin dashboard, and scheduled pipeline automation.
+
+### Newsletter sections (display order)
+
+**Part 1 — Inform:**
+1. **Signal** — The single most important AI story this week, explained simply.
+2. **Translate** — One technical concept from the news, explained with an everyday analogy.
+3. **Radar** — Quick takes on the stories shaping the AI landscape right now.
+
+*// Now it's your turn* (visual separator)
+
+**Part 2 — Practice:**
+4. **Prompt Lab** — A ready-to-use prompt you can copy, paste, and adapt to your work. (JSON field: `use_this`)
+5. **Workflow Shift** — A common task reimagined with AI. See the difference side by side. (JSON field: `before_after`)
+6. **Weekly Challenge** — A hands-on exercise at three levels. Pick yours and start. (JSON field: `challenge`)
 
 ## Architecture
 
@@ -72,7 +86,7 @@ Does NOT save to `newsletter_history`. The newsletter stays as pending until sen
 Sends the most recent pending newsletter to all subscribers. This is the second half of the weekly flow.
 
 1. Find most recent `pending_newsletter` with status='pending'
-2. Gather all subscribers (env vars + DB)
+2. Gather all active subscribers from DB
 3. Send to all via Resend API (personalized unsubscribe links per subscriber)
 4. Mark newsletter as 'sent'
 5. **Save to `newsletter_history`** (only after successful email delivery)
@@ -148,7 +162,8 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 |--------|------|---------|
 | GET | `/dashboard` | Admin dashboard HTML |
 | POST | `/dashboard/login` | Password login → cookie token |
-| GET | `/api/dashboard/subscribers` | Subscriber stats |
+| GET | `/api/dashboard/subscribers` | Subscriber stats (active, last 7d, last 30d) |
+| GET | `/api/dashboard/subscribers/list` | Full subscriber list (email, date, status) |
 | GET | `/api/dashboard/articles` | Article stats (by source, by category) |
 | GET | `/api/dashboard/api-costs` | API usage & cost breakdown |
 | GET | `/api/dashboard/emails` | Email send stats + recent logs |
@@ -190,7 +205,7 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 | NEWSLETTER_FROM_EMAIL | Yes | Sender email (must be verified in Resend) |
 | BASE_URL | Yes | Public URL for unsubscribe links (https://knowledgeinchain.com) |
 | CLAUDE_MODEL | No | Model for curation/generation (default: claude-sonnet-4-5-20250929) |
-| NEWSLETTER_SUBSCRIBERS | No | Comma-separated subscriber emails (merged with DB subscribers) |
+| NEWSLETTER_SUBSCRIBERS | No | Comma-separated subscriber emails (migrated to DB on startup) |
 | REVIEW_EMAIL | No | Email for preview sends |
 | DASHBOARD_PASSWORD | No | Dashboard auth (empty = open access) |
 | DATABASE_PATH | No | SQLite path (default: newsletter.db, Railway: /data/newsletter.db) |

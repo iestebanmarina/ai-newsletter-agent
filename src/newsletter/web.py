@@ -313,7 +313,14 @@ async def api_emails(dashboard_token: str | None = Cookie(default=None)):
     err = _require_auth(dashboard_token)
     if err:
         return err
-    return get_last_newsletter_emails(settings.database_path)
+    stats = get_email_stats(settings.database_path)
+    last = get_last_newsletter_emails(settings.database_path)
+    return {
+        "total_sent": stats["total_sent"],
+        "total_failed": stats["total_failed"],
+        "pipeline_run_id": last["pipeline_run_id"],
+        "recent": last["recent"],
+    }
 
 
 @app.get("/api/dashboard/emails/failed")

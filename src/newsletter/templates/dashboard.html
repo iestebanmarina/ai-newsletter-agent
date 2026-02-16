@@ -9,7 +9,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; scrollbar-color: #292929 #0a0a0a; scrollbar-width: thin; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #0a0a0a; }
+  ::-webkit-scrollbar-thumb { background: #292929; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #404040; }
 
   body {
     font-family: 'JetBrains Mono', 'Share Tech Mono', 'Courier New', monospace;
@@ -940,14 +944,34 @@
       var status = r.active ? '<span style="color:#34d399;">Active</span>' : '<span style="color:#f87171;">Inactive</span>';
       var actions = '';
       if (r.active) {
-        actions = '<a href="#" onclick="editSubscriber(\'' + esc(r.email) + '\');return false;" style="color:#34d399;text-decoration:none;">Edit</a>'
-          + ' &middot; <a href="#" onclick="deactivateSubscriber(\'' + esc(r.email) + '\');return false;" style="color:#f87171;text-decoration:none;">Deactivate</a>';
+        actions = '<a href="#" class="edit-sub-btn" data-email="' + esc(r.email) + '" style="color:#34d399;text-decoration:none;">Edit</a>'
+          + ' &middot; <a href="#" class="deactivate-sub-btn" data-email="' + esc(r.email) + '" style="color:#f87171;text-decoration:none;">Deactivate</a>';
       } else {
-        actions = '<a href="#" onclick="reactivateSubscriber(\'' + esc(r.email) + '\');return false;" style="color:#34d399;text-decoration:none;">Reactivate</a>';
+        actions = '<a href="#" class="reactivate-sub-btn" data-email="' + esc(r.email) + '" style="color:#34d399;text-decoration:none;">Reactivate</a>';
       }
       html += '<tr><td>' + esc(r.email) + '</td><td>' + fmtDate(r.subscribed_at) + '</td><td>' + status + '</td><td>' + actions + '</td></tr>';
     });
     $('tableSubscribers').innerHTML = html || '<tr><td colspan="4">No subscribers</td></tr>';
+
+    // Attach event listeners via delegation
+    document.querySelectorAll('.edit-sub-btn').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.editSubscriber(this.dataset.email);
+      });
+    });
+    document.querySelectorAll('.deactivate-sub-btn').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.deactivateSubscriber(this.dataset.email);
+      });
+    });
+    document.querySelectorAll('.reactivate-sub-btn').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.reactivateSubscriber(this.dataset.email);
+      });
+    });
   }
 
   window.openAddSubscriber = function() {

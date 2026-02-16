@@ -386,6 +386,36 @@
     background: #3b82f6;
     transform: translateY(-1px);
   }
+
+  .retry-resolved td {
+    opacity: 0.5;
+    text-decoration: line-through;
+  }
+
+  .retry-resolved td:first-child,
+  .retry-resolved td:last-child {
+    text-decoration: none;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-green {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+  }
+
+  .badge-red {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+  }
 </style>
 </head>
 <body>
@@ -511,11 +541,14 @@
 
   <!-- Subscribers list -->
   <div class="section">
-    <h2>Subscribers</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h2 style="margin-bottom:0;">Subscribers</h2>
+      <button class="btn btn-primary" onclick="openAddSubscriber()" style="font-size:11px;padding:6px 14px;">+ Add</button>
+    </div>
     <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
       <table>
-        <thead><tr><th>Email</th><th>Subscribed</th><th>Status</th></tr></thead>
-        <tbody id="tableSubscribers"><tr><td colspan="3">Loading...</td></tr></tbody>
+        <thead><tr><th>Email</th><th>Subscribed</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="tableSubscribers"><tr><td colspan="4">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -538,8 +571,8 @@
 
   <!-- Recent emails -->
   <div class="section">
-    <h2>Recent Emails</h2>
-    <div class="table-wrap">
+    <h2>Recent Emails <span id="recentEmailsRunId" style="font-size:11px;color:#404040;text-transform:none;letter-spacing:0;font-weight:400;"></span></h2>
+    <div class="table-wrap" style="max-height:220px;overflow-y:auto;">
       <table>
         <thead><tr><th>Recipient</th><th>Status</th><th>Date</th><th>Error</th></tr></thead>
         <tbody id="tableEmails"><tr><td colspan="4">Loading...</td></tr></tbody>
@@ -554,7 +587,7 @@
         Retry Selected (<span id="selectedCount">0</span>)
       </button>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" style="max-height:340px;overflow-y:auto;">
       <table>
         <thead>
           <tr>
@@ -619,6 +652,35 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeSubscriberModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addSubscriberModal" onclick="closeAddSubscriber(event)">
+  <div class="modal" style="max-width:420px;">
+    <h3 style="color:#f59e0b;">Add Subscriber</h3>
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Email Address</label>
+      <input type="email" id="addSubEmail" placeholder="user@example.com" style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitAddSubscriber()">Add</button>
+      <button class="btn btn-outline" onclick="closeAddSubscriber()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editSubscriberModal" onclick="closeEditSubscriber(event)">
+  <div class="modal" style="max-width:420px;">
+    <h3 style="color:#34d399;">Edit Subscriber</h3>
+    <input type="hidden" id="editSubOldEmail">
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Email Address</label>
+      <input type="email" id="editSubNewEmail" style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitEditSubscriber()">Save</button>
+      <button class="btn btn-outline" onclick="closeEditSubscriber()">Cancel</button>
     </div>
   </div>
 </div>
@@ -712,9 +774,16 @@
     $('kpiEmails').textContent = fmt(data.total_sent);
     $('kpiEmailsSub').textContent = fmt(data.total_failed) + ' failed';
 
+    if (data.pipeline_run_id) {
+      $('recentEmailsRunId').textContent = '(run: ' + data.pipeline_run_id + ')';
+    } else {
+      $('recentEmailsRunId').textContent = '';
+    }
+
     var html = '';
     (data.recent || []).forEach(function(r) {
-      html += '<tr><td>' + esc(r.recipient) + '</td><td>' + esc(r.status) + '</td><td>' + fmtDate(r.created_at) + '</td><td>' + esc(r.error || '') + '</td></tr>';
+      var statusCls = r.status === 'sent' ? 'status-completed' : 'status-failed';
+      html += '<tr><td>' + esc(r.recipient) + '</td><td class="' + statusCls + '">' + esc(r.status) + '</td><td>' + fmtDate(r.created_at) + '</td><td>' + esc(r.error || '') + '</td></tr>';
     });
     $('tableEmails').innerHTML = html || '<tr><td colspan="4">No data</td></tr>';
 
@@ -735,17 +804,28 @@
 
     var html = '';
     (data.failed_emails || []).forEach(function(r) {
-      html += '<tr>'
-        + '<td><input type="checkbox" class="email-checkbox" value="' + esc(r.recipient) + '"></td>'
-        + '<td>' + esc(r.recipient) + '</td>'
+      var isResolved = r.retry_status === 'resolved';
+      var isRetryFailed = r.retry_status === 'retry_failed';
+      var rowClass = isResolved ? ' class="retry-resolved"' : '';
+      var cbDisabled = isResolved ? ' disabled' : '';
+      var badge = '';
+      if (isResolved) {
+        badge = ' <span class="badge badge-green">retried</span>';
+      } else if (isRetryFailed) {
+        badge = ' <span class="badge badge-red">retry failed</span>';
+      }
+
+      html += '<tr' + rowClass + '>'
+        + '<td><input type="checkbox" class="email-checkbox" value="' + esc(r.recipient) + '"' + cbDisabled + '></td>'
+        + '<td>' + esc(r.recipient) + badge + '</td>'
         + '<td>' + fmtDate(r.failed_at) + '</td>'
         + '<td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(r.error || '') + '">' + esc(r.error || '') + '</td>'
         + '</tr>';
     });
     $('tableFailedEmails').innerHTML = html || '<tr><td colspan="4">No failed emails</td></tr>';
 
-    // Add event listeners to all checkboxes after they're inserted
-    var checkboxes = document.querySelectorAll('.email-checkbox');
+    // Add event listeners to enabled checkboxes only
+    var checkboxes = document.querySelectorAll('.email-checkbox:not(:disabled)');
     checkboxes.forEach(function(cb) {
       cb.addEventListener('change', window.updateSelectedCount);
     });
@@ -754,7 +834,7 @@
   }
 
   window.toggleSelectAll = function() {
-    var checkboxes = document.querySelectorAll('.email-checkbox');
+    var checkboxes = document.querySelectorAll('.email-checkbox:not(:disabled)');
     var selectAll = $('selectAll').checked;
     checkboxes.forEach(function(cb) {
       cb.checked = selectAll;
@@ -763,7 +843,7 @@
   };
 
   window.updateSelectedCount = function() {
-    var checkboxes = document.querySelectorAll('.email-checkbox:checked');
+    var checkboxes = document.querySelectorAll('.email-checkbox:not(:disabled):checked');
     var count = checkboxes.length;
     $('selectedCount').textContent = count;
     $('retryBtn').disabled = count === 0;
@@ -858,10 +938,128 @@
     var html = '';
     (data || []).forEach(function(r) {
       var status = r.active ? '<span style="color:#34d399;">Active</span>' : '<span style="color:#f87171;">Inactive</span>';
-      html += '<tr><td>' + esc(r.email) + '</td><td>' + fmtDate(r.subscribed_at) + '</td><td>' + status + '</td></tr>';
+      var actions = '';
+      if (r.active) {
+        actions = '<a href="#" onclick="editSubscriber(\'' + esc(r.email) + '\');return false;" style="color:#34d399;text-decoration:none;">Edit</a>'
+          + ' &middot; <a href="#" onclick="deactivateSubscriber(\'' + esc(r.email) + '\');return false;" style="color:#f87171;text-decoration:none;">Deactivate</a>';
+      } else {
+        actions = '<a href="#" onclick="reactivateSubscriber(\'' + esc(r.email) + '\');return false;" style="color:#34d399;text-decoration:none;">Reactivate</a>';
+      }
+      html += '<tr><td>' + esc(r.email) + '</td><td>' + fmtDate(r.subscribed_at) + '</td><td>' + status + '</td><td>' + actions + '</td></tr>';
     });
-    $('tableSubscribers').innerHTML = html || '<tr><td colspan="3">No subscribers</td></tr>';
+    $('tableSubscribers').innerHTML = html || '<tr><td colspan="4">No subscribers</td></tr>';
   }
+
+  window.openAddSubscriber = function() {
+    $('addSubEmail').value = '';
+    $('addSubscriberModal').classList.add('show');
+    $('addSubEmail').focus();
+  };
+
+  window.closeAddSubscriber = function(e) {
+    if (e && e.target !== $('addSubscriberModal')) return;
+    $('addSubscriberModal').classList.remove('show');
+  };
+
+  window.submitAddSubscriber = async function() {
+    var email = $('addSubEmail').value.trim();
+    if (!email) { showToast('Enter an email address'); return; }
+    try {
+      var res = await fetch('/api/dashboard/subscribers/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email})
+      });
+      var data = await res.json();
+      if (res.ok && data.ok) {
+        showToast(data.message);
+        $('addSubscriberModal').classList.remove('show');
+        loadSubscriberList();
+        loadSubscribers();
+      } else {
+        showToast(data.message || 'Failed to add subscriber');
+      }
+    } catch(e) {
+      showToast('Error adding subscriber');
+    }
+  };
+
+  window.editSubscriber = function(email) {
+    $('editSubOldEmail').value = email;
+    $('editSubNewEmail').value = email;
+    $('editSubscriberModal').classList.add('show');
+    $('editSubNewEmail').focus();
+  };
+
+  window.closeEditSubscriber = function(e) {
+    if (e && e.target !== $('editSubscriberModal')) return;
+    $('editSubscriberModal').classList.remove('show');
+  };
+
+  window.submitEditSubscriber = async function() {
+    var oldEmail = $('editSubOldEmail').value;
+    var newEmail = $('editSubNewEmail').value.trim();
+    if (!newEmail) { showToast('Enter an email address'); return; }
+    if (oldEmail === newEmail) { showToast('Email unchanged'); return; }
+    try {
+      var res = await fetch('/api/dashboard/subscribers/update-email', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({old_email: oldEmail, new_email: newEmail})
+      });
+      var data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message);
+        $('editSubscriberModal').classList.remove('show');
+        loadSubscriberList();
+      } else {
+        showToast(data.error || data.message || 'Failed to update');
+      }
+    } catch(e) {
+      showToast('Error updating subscriber');
+    }
+  };
+
+  window.deactivateSubscriber = async function(email) {
+    if (!confirm('Deactivate subscriber ' + email + '?')) return;
+    try {
+      var res = await fetch('/api/dashboard/subscribers/remove', {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email})
+      });
+      var data = await res.json();
+      if (res.ok && data.ok) {
+        showToast(data.message);
+        loadSubscriberList();
+        loadSubscribers();
+      } else {
+        showToast(data.message || 'Failed to deactivate');
+      }
+    } catch(e) {
+      showToast('Error deactivating subscriber');
+    }
+  };
+
+  window.reactivateSubscriber = async function(email) {
+    try {
+      var res = await fetch('/api/dashboard/subscribers/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email})
+      });
+      var data = await res.json();
+      if (res.ok && data.ok) {
+        showToast('Subscriber reactivated');
+        loadSubscriberList();
+        loadSubscribers();
+      } else {
+        showToast(data.message || 'Failed to reactivate');
+      }
+    } catch(e) {
+      showToast('Error reactivating subscriber');
+    }
+  };
 
   async function loadHistory() {
     var data = await fetchJson('/api/dashboard/newsletter-history');

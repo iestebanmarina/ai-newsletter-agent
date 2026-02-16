@@ -23,6 +23,8 @@ from .db import (
     get_failed_emails,
     get_history_entries,
     get_history_for_landing,
+    get_last_newsletter_emails,
+    get_latest_email_status,
     get_linkedin_post,
     get_newsletter_by_id,
     get_pending_newsletters,
@@ -35,6 +37,7 @@ from .db import (
     init_db,
     remove_subscriber,
     update_newsletter_html,
+    update_retry_status,
     update_subscriber_email,
 )
 from .generator import render_html
@@ -237,6 +240,58 @@ async def api_update_subscriber_email(
         )
 
 
+class AddSubscriberRequest(BaseModel):
+    email: str
+
+
+@app.post("/api/dashboard/subscribers/add")
+async def api_add_subscriber(
+    request: AddSubscriberRequest,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+
+    email = request.email.strip().lower()
+    if not EMAIL_RE.match(email):
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "message": "Invalid email address"},
+        )
+
+    added = add_subscriber(settings.database_path, email)
+    if added:
+        return {"ok": True, "message": f"Subscriber {email} added successfully"}
+    return JSONResponse(
+        status_code=409,
+        content={"ok": False, "message": f"{email} is already an active subscriber"},
+    )
+
+
+class RemoveSubscriberRequest(BaseModel):
+    email: str
+
+
+@app.delete("/api/dashboard/subscribers/remove")
+async def api_remove_subscriber(
+    request: RemoveSubscriberRequest,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+
+    email = request.email.strip().lower()
+    removed = remove_subscriber(settings.database_path, email)
+    if removed:
+        return {"ok": True, "message": f"Subscriber {email} deactivated"}
+    return JSONResponse(
+        status_code=404,
+        content={"ok": False, "message": f"Active subscriber {email} not found"},
+    )
+
+
 @app.get("/api/dashboard/articles")
 async def api_articles(dashboard_token: str | None = Cookie(default=None)):
     err = _require_auth(dashboard_token)
@@ -258,7 +313,7 @@ async def api_emails(dashboard_token: str | None = Cookie(default=None)):
     err = _require_auth(dashboard_token)
     if err:
         return err
-    return get_email_stats(settings.database_path)
+    return get_last_newsletter_emails(settings.database_path)
 
 
 @app.get("/api/dashboard/emails/failed")
@@ -343,6 +398,17 @@ async def api_retry_emails(
             pipeline_run_id="manual_retry",
             subject=subject,
         )
+
+        # Update retry_status on original failed entries
+        for recipient in request.recipients:
+            retry_result = get_latest_email_status(
+                settings.database_path, recipient, "manual_retry"
+            )
+            if retry_result == "sent":
+                update_retry_status(settings.database_path, recipient, "resolved")
+            elif retry_result == "failed":
+                update_retry_status(settings.database_path, recipient, "retry_failed")
+
         return {
             "ok": True,
             "sent": result["sent"],

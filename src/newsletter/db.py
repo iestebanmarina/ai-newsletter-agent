@@ -182,6 +182,12 @@ def init_db(db_path: str) -> None:
     except sqlite3.OperationalError:
         pass  # Column already exists
 
+    # Add retry_status column if upgrading from older schema
+    try:
+        conn.execute("ALTER TABLE email_log ADD COLUMN retry_status TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
     # Add multi-dimensional scoring columns
     for col in [
         "impact_score REAL DEFAULT 0.0",
@@ -835,6 +841,53 @@ def log_email_send(
     conn.close()
 
 
+def update_retry_status(db_path: str, recipient: str, status: str) -> bool:
+    """Update retry_status on the most recent failed email_log entry for a recipient.
+
+    status should be 'resolved' or 'retry_failed'.
+    Returns True if a row was updated.
+    """
+    conn = get_connection(db_path)
+    try:
+        # Find the most recent failed entry for this recipient
+        row = conn.execute(
+            """SELECT id FROM email_log
+               WHERE recipient = ? AND status = 'failed'
+               ORDER BY id DESC LIMIT 1""",
+            (recipient,),
+        ).fetchone()
+        if row is None:
+            return False
+        conn.execute(
+            "UPDATE email_log SET retry_status = ? WHERE id = ?",
+            (status, row[0]),
+        )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def get_latest_email_status(db_path: str, recipient: str, pipeline_run_id: str) -> str | None:
+    """Get the status of the most recent email_log entry for a recipient+pipeline_run_id.
+
+    Returns 'sent', 'failed', or None if no entry found.
+    """
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute(
+            """SELECT status FROM email_log
+               WHERE recipient = ? AND pipeline_run_id = ?
+               ORDER BY id DESC LIMIT 1""",
+            (recipient, pipeline_run_id),
+        ).fetchone()
+        if row is None:
+            return None
+        return row[0]
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Pipeline run tracking
 # ---------------------------------------------------------------------------
@@ -969,7 +1022,8 @@ def get_failed_emails(db_path: str, days: int = 7) -> list[dict]:
     conn = get_connection(db_path)
     cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
     rows = conn.execute(
-        """SELECT recipient, error_message, created_at, pipeline_run_id
+        """SELECT recipient, error_message, created_at, pipeline_run_id,
+                  COALESCE(retry_status, '') as retry_status
            FROM email_log
            WHERE status = 'failed'
            AND created_at >= ?
@@ -983,9 +1037,50 @@ def get_failed_emails(db_path: str, days: int = 7) -> list[dict]:
             "error": r[1],
             "failed_at": r[2],
             "pipeline_run_id": r[3],
+            "retry_status": r[4],
         }
         for r in rows
     ]
+
+
+def get_last_newsletter_emails(db_path: str) -> dict:
+    """Get email logs from the most recent newsletter send (excludes manual retries)."""
+    conn = get_connection(db_path)
+    # Find the most recent pipeline_run_id that is not a manual retry and not empty
+    row = conn.execute(
+        """SELECT pipeline_run_id FROM email_log
+           WHERE pipeline_run_id != '' AND pipeline_run_id != 'manual_retry'
+           ORDER BY id DESC LIMIT 1"""
+    ).fetchone()
+    if row is None:
+        conn.close()
+        return {"total_sent": 0, "total_failed": 0, "pipeline_run_id": None, "recent": []}
+
+    run_id = row[0]
+    total_sent = conn.execute(
+        "SELECT COUNT(*) FROM email_log WHERE pipeline_run_id = ? AND status = 'sent'",
+        (run_id,),
+    ).fetchone()[0]
+    total_failed = conn.execute(
+        "SELECT COUNT(*) FROM email_log WHERE pipeline_run_id = ? AND status = 'failed'",
+        (run_id,),
+    ).fetchone()[0]
+    recent = conn.execute(
+        """SELECT recipient, status, error_message, created_at
+           FROM email_log WHERE pipeline_run_id = ?
+           ORDER BY id DESC""",
+        (run_id,),
+    ).fetchall()
+    conn.close()
+    return {
+        "total_sent": total_sent,
+        "total_failed": total_failed,
+        "pipeline_run_id": run_id,
+        "recent": [
+            {"recipient": r[0], "status": r[1], "error": r[2], "created_at": r[3]}
+            for r in recent
+        ],
+    }
 
 
 def get_pipeline_runs(db_path: str, limit: int = 20) -> list[dict]:

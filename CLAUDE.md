@@ -169,6 +169,8 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 | GET | `/api/dashboard/subscribers` | Subscriber stats (active, last 7d, last 30d) |
 | GET | `/api/dashboard/subscribers/list` | Full subscriber list (email, date, status) |
 | GET | `/api/dashboard/subscribers/growth` | Cumulative subscriber totals (weekly + monthly, last 12 each) |
+| POST | `/api/dashboard/subscribers/add` | Add new subscriber (body: `{email}`) |
+| DELETE | `/api/dashboard/subscribers/remove` | Deactivate subscriber (body: `{email}`) |
 | PATCH | `/api/dashboard/subscribers/update-email` | Update subscriber email (body: `{old_email, new_email}`) |
 | GET | `/api/dashboard/articles` | Article stats (by source, by category) |
 | GET | `/api/dashboard/api-costs` | API usage & cost breakdown |

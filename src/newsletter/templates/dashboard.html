@@ -736,33 +736,40 @@
     var html = '';
     (data.failed_emails || []).forEach(function(r) {
       html += '<tr>'
-        + '<td><input type="checkbox" class="email-checkbox" value="' + esc(r.recipient) + '" onchange="updateSelectedCount()"></td>'
+        + '<td><input type="checkbox" class="email-checkbox" value="' + esc(r.recipient) + '"></td>'
         + '<td>' + esc(r.recipient) + '</td>'
         + '<td>' + fmtDate(r.failed_at) + '</td>'
         + '<td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(r.error || '') + '">' + esc(r.error || '') + '</td>'
         + '</tr>';
     });
     $('tableFailedEmails').innerHTML = html || '<tr><td colspan="4">No failed emails</td></tr>';
-    updateSelectedCount();
+
+    // Add event listeners to all checkboxes after they're inserted
+    var checkboxes = document.querySelectorAll('.email-checkbox');
+    checkboxes.forEach(function(cb) {
+      cb.addEventListener('change', window.updateSelectedCount);
+    });
+
+    window.updateSelectedCount();
   }
 
-  function toggleSelectAll() {
+  window.toggleSelectAll = function() {
     var checkboxes = document.querySelectorAll('.email-checkbox');
     var selectAll = $('selectAll').checked;
     checkboxes.forEach(function(cb) {
       cb.checked = selectAll;
     });
-    updateSelectedCount();
-  }
+    window.updateSelectedCount();
+  };
 
-  function updateSelectedCount() {
+  window.updateSelectedCount = function() {
     var checkboxes = document.querySelectorAll('.email-checkbox:checked');
     var count = checkboxes.length;
     $('selectedCount').textContent = count;
     $('retryBtn').disabled = count === 0;
-  }
+  };
 
-  async function retryFailedEmails() {
+  window.retryFailedEmails = async function() {
     var checkboxes = document.querySelectorAll('.email-checkbox:checked');
     var recipients = Array.from(checkboxes).map(function(cb) { return cb.value; });
 

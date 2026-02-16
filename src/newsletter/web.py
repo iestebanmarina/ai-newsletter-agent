@@ -27,6 +27,7 @@ from .db import (
     get_newsletter_by_id,
     get_pending_newsletters,
     get_pipeline_runs,
+    get_sent_newsletters,
     get_subscriber_list,
     get_subscriber_growth,
     get_subscriber_stats,
@@ -271,18 +272,34 @@ async def api_retry_emails(
             content={"ok": False, "message": "No recipients provided"}
         )
 
-    # Get the most recent sent newsletter
-    newsletters = get_pending_newsletters(settings.database_path)
-    sent_newsletter = next(
-        (n for n in newsletters if n["status"] == "sent"),
-        None
-    )
-
-    if not sent_newsletter:
+    # Get the most recent sent newsletter (with full content)
+    sent_newsletters = get_sent_newsletters(settings.database_path, limit=1)
+    if not sent_newsletters:
         return JSONResponse(
             status_code=404,
             content={"ok": False, "message": "No sent newsletter found to retry"}
         )
+
+    # Get full newsletter content including HTML
+    newsletter_id = sent_newsletters[0]["id"]
+    sent_newsletter = get_newsletter_by_id(settings.database_path, newsletter_id)
+
+    if not sent_newsletter or not sent_newsletter.get("html_content"):
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "message": "Newsletter content not found"}
+        )
+
+    # Extract edition number from json_data if available
+    try:
+        json_data = json.loads(sent_newsletter.get("json_data", "{}"))
+        edition_number = json_data.get("edition_number", "")
+        if edition_number:
+            subject = f"Knowledge in Chain - Edition #{edition_number}"
+        else:
+            subject = sent_newsletter.get("subject", "Knowledge in Chain Newsletter")
+    except (json.JSONDecodeError, KeyError):
+        subject = sent_newsletter.get("subject", "Knowledge in Chain Newsletter")
 
     # Send newsletter to failed recipients
     try:
@@ -294,7 +311,7 @@ async def api_retry_emails(
             base_url=settings.base_url,
             db_path=settings.database_path,
             pipeline_run_id="manual_retry",
-            subject=f"Knowledge in Chain - Edition #{sent_newsletter['edition_number']}",
+            subject=subject,
         )
         return {
             "ok": True,

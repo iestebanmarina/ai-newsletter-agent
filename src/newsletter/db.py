@@ -760,6 +760,20 @@ def remove_subscriber(db_path: str, email: str) -> bool:
         conn.close()
 
 
+def update_subscriber_email(db_path: str, old_email: str, new_email: str) -> bool:
+    """Update a subscriber's email address. Returns True if updated successfully."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            "UPDATE subscribers SET email = ? WHERE email = ?",
+            (new_email, old_email),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # API usage / cost tracking
 # ---------------------------------------------------------------------------

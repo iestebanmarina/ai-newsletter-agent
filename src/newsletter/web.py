@@ -35,6 +35,7 @@ from .db import (
     init_db,
     remove_subscriber,
     update_newsletter_html,
+    update_subscriber_email,
 )
 from .generator import render_html
 from . import main as main_module
@@ -205,6 +206,35 @@ async def api_subscriber_list(dashboard_token: str | None = Cookie(default=None)
     if err:
         return err
     return get_subscriber_list(settings.database_path)
+
+
+class UpdateEmailRequest(BaseModel):
+    old_email: str
+    new_email: str
+
+
+@app.patch("/api/dashboard/subscribers/update-email")
+async def api_update_subscriber_email(
+    request: UpdateEmailRequest,
+    dashboard_token: str | None = Cookie(default=None)
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+
+    success = update_subscriber_email(
+        settings.database_path,
+        request.old_email,
+        request.new_email
+    )
+
+    if success:
+        return {"success": True, "message": f"Email updated from {request.old_email} to {request.new_email}"}
+    else:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": f"Subscriber with email {request.old_email} not found"}
+        )
 
 
 @app.get("/api/dashboard/articles")

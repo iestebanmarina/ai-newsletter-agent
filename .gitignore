@@ -9,3 +9,11 @@ build/
 .uv/
 *.html
 !src/newsletter/templates/*.html
+
+# Temporary development/debugging files
+*_temp.py
+*_test.py
+check_*.py
+temp/
+.local/
+cookies.txt

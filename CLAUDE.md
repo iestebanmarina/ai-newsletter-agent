@@ -46,6 +46,9 @@ src/newsletter/
     landing.html     - Public landing page with subscription form + archive
     dashboard.html   - Admin dashboard (stats, pipeline runs, newsletter management)
     unsubscribe.html - Unsubscribe confirmation page
+scripts/
+  fix_email_via_api.py - Update subscriber email via dashboard API
+  README.md            - Scripts documentation and guidelines
 ```
 
 ## Commands
@@ -239,3 +242,7 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 - Cookie-based dashboard auth with SHA-256 token generation
 - Per-subscriber personalized unsubscribe links in every email
 - Email rate limiting: 0.6s delay between sends (respects Resend's 2 req/sec limit)
+- **Scripts organization:**
+  - `scripts/` - Versioned utility scripts (admin tools, migrations, ops utilities)
+  - Temporary/debugging scripts use patterns ignored by git: `check_*.py`, `*_test.py`, `*_temp.py`
+  - See `scripts/README.md` for detailed guidelines

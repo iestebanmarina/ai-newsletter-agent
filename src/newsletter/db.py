@@ -950,6 +950,30 @@ def get_email_stats(db_path: str) -> dict:
     }
 
 
+def get_failed_emails(db_path: str, days: int = 7) -> list[dict]:
+    """Get all failed emails from the last N days, grouped by recipient."""
+    conn = get_connection(db_path)
+    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    rows = conn.execute(
+        """SELECT recipient, error_message, created_at, pipeline_run_id
+           FROM email_log
+           WHERE status = 'failed'
+           AND created_at >= ?
+           ORDER BY created_at DESC""",
+        (cutoff,),
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "recipient": r[0],
+            "error": r[1],
+            "failed_at": r[2],
+            "pipeline_run_id": r[3],
+        }
+        for r in rows
+    ]
+
+
 def get_pipeline_runs(db_path: str, limit: int = 20) -> list[dict]:
     conn = get_connection(db_path)
     rows = conn.execute(

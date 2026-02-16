@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime
 from urllib.parse import quote
 
@@ -42,7 +43,7 @@ def send_newsletter(
         subject = f"Knowledge in Chain - {today}"
     base_url = base_url.rstrip("/")
 
-    for email in subscribers:
+    for i, email in enumerate(subscribers):
         try:
             unsubscribe_url = f"{base_url}/api/unsubscribe?email={quote(email)}"
             personalized_html = html_content.replace("{{UNSUBSCRIBE_URL}}", unsubscribe_url)
@@ -78,5 +79,10 @@ def send_newsletter(
                     )
                 except Exception:
                     logger.debug("Failed to log email failure", exc_info=True)
+
+        # Rate limiting: Resend allows 2 requests/second, so wait 0.6s between emails
+        # Skip sleep after the last email
+        if i < len(subscribers) - 1:
+            time.sleep(0.6)
 
     return result

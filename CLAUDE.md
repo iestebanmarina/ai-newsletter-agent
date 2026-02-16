@@ -169,6 +169,8 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 | GET | `/api/dashboard/articles` | Article stats (by source, by category) |
 | GET | `/api/dashboard/api-costs` | API usage & cost breakdown |
 | GET | `/api/dashboard/emails` | Email send stats + recent logs |
+| GET | `/api/dashboard/emails/failed` | Failed emails from last N days (default: 7) |
+| POST | `/api/dashboard/emails/retry` | Retry sending to failed recipients (with rate limiting) |
 | GET | `/api/dashboard/pipeline-runs` | Last 20 pipeline runs with metrics |
 | GET | `/api/dashboard/pending-newsletters` | List pending newsletters |
 | PATCH | `/api/dashboard/pending-newsletters/{id}` | Edit edition number/date (re-renders HTML) |
@@ -235,3 +237,4 @@ Monday 09:00 UTC ─── scheduler runs mode="send-pending"
 - Diversity-aware article selection: max per source, min papers, min expert posts
 - Cookie-based dashboard auth with SHA-256 token generation
 - Per-subscriber personalized unsubscribe links in every email
+- Email rate limiting: 0.6s delay between sends (respects Resend's 2 req/sec limit)

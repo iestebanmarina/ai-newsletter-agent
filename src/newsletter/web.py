@@ -20,6 +20,7 @@ from .db import (
     get_api_usage_stats,
     get_article_stats,
     get_email_stats,
+    get_failed_emails,
     get_history_entries,
     get_history_for_landing,
     get_linkedin_post,
@@ -37,6 +38,7 @@ from .db import (
 from .generator import render_html
 from . import main as main_module
 from .main import run_pipeline, start_scheduler_thread
+from .emailer import send_newsletter
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +228,86 @@ async def api_emails(dashboard_token: str | None = Cookie(default=None)):
     if err:
         return err
     return get_email_stats(settings.database_path)
+
+
+@app.get("/api/dashboard/emails/failed")
+async def api_failed_emails(
+    dashboard_token: str | None = Cookie(default=None),
+    days: int = 7,
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    failed = get_failed_emails(settings.database_path, days=days)
+    # Group by recipient to show unique emails
+    unique_recipients = {}
+    for entry in failed:
+        email = entry["recipient"]
+        if email not in unique_recipients:
+            unique_recipients[email] = entry
+    return {
+        "total": len(failed),
+        "unique_recipients": len(unique_recipients),
+        "failed_emails": list(unique_recipients.values()),
+    }
+
+
+class RetryEmailsRequest(BaseModel):
+    recipients: list[str]
+
+
+@app.post("/api/dashboard/emails/retry")
+async def api_retry_emails(
+    request: RetryEmailsRequest,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+
+    if not request.recipients:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "message": "No recipients provided"}
+        )
+
+    # Get the most recent sent newsletter
+    newsletters = get_pending_newsletters(settings.database_path)
+    sent_newsletter = next(
+        (n for n in newsletters if n["status"] == "sent"),
+        None
+    )
+
+    if not sent_newsletter:
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "message": "No sent newsletter found to retry"}
+        )
+
+    # Send newsletter to failed recipients
+    try:
+        result = send_newsletter(
+            html_content=sent_newsletter["html_content"],
+            from_email=settings.newsletter_from_email,
+            subscribers=request.recipients,
+            api_key=settings.resend_api_key,
+            base_url=settings.base_url,
+            db_path=settings.database_path,
+            pipeline_run_id="manual_retry",
+            subject=f"Knowledge in Chain - Edition #{sent_newsletter['edition_number']}",
+        )
+        return {
+            "ok": True,
+            "sent": result["sent"],
+            "failed": result["failed"],
+            "message": f"Retry complete: {result['sent']} sent, {result['failed']} failed",
+        }
+    except Exception as e:
+        logger.exception("Failed to retry emails")
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "message": f"Error: {str(e)}"}
+        )
 
 
 @app.get("/api/dashboard/pipeline-runs")

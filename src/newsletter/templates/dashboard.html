@@ -546,6 +546,30 @@
       </table>
     </div>
   </div>
+
+  <div class="section" id="failedEmailsSection" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2>Failed Emails (Last 7 Days)</h2>
+      <button class="btn btn-primary" onclick="retryFailedEmails()" id="retryBtn" disabled>
+        Retry Selected (<span id="selectedCount">0</span>)
+      </button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px;">
+              <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+            </th>
+            <th>Recipient</th>
+            <th>Failed At</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody id="tableFailedEmails"><tr><td colspan="4">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="linkedinModal" onclick="closeLinkedIn(event)">
@@ -693,6 +717,88 @@
       html += '<tr><td>' + esc(r.recipient) + '</td><td>' + esc(r.status) + '</td><td>' + fmtDate(r.created_at) + '</td><td>' + esc(r.error || '') + '</td></tr>';
     });
     $('tableEmails').innerHTML = html || '<tr><td colspan="4">No data</td></tr>';
+
+    // Also load failed emails
+    loadFailedEmails();
+  }
+
+  async function loadFailedEmails() {
+    var data = await fetchJson('/api/dashboard/emails/failed?days=7');
+    if (!data) return;
+
+    if (data.unique_recipients === 0) {
+      $('failedEmailsSection').style.display = 'none';
+      return;
+    }
+
+    $('failedEmailsSection').style.display = 'block';
+
+    var html = '';
+    (data.failed_emails || []).forEach(function(r) {
+      html += '<tr>'
+        + '<td><input type="checkbox" class="email-checkbox" value="' + esc(r.recipient) + '" onchange="updateSelectedCount()"></td>'
+        + '<td>' + esc(r.recipient) + '</td>'
+        + '<td>' + fmtDate(r.failed_at) + '</td>'
+        + '<td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(r.error || '') + '">' + esc(r.error || '') + '</td>'
+        + '</tr>';
+    });
+    $('tableFailedEmails').innerHTML = html || '<tr><td colspan="4">No failed emails</td></tr>';
+    updateSelectedCount();
+  }
+
+  function toggleSelectAll() {
+    var checkboxes = document.querySelectorAll('.email-checkbox');
+    var selectAll = $('selectAll').checked;
+    checkboxes.forEach(function(cb) {
+      cb.checked = selectAll;
+    });
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    var checkboxes = document.querySelectorAll('.email-checkbox:checked');
+    var count = checkboxes.length;
+    $('selectedCount').textContent = count;
+    $('retryBtn').disabled = count === 0;
+  }
+
+  async function retryFailedEmails() {
+    var checkboxes = document.querySelectorAll('.email-checkbox:checked');
+    var recipients = Array.from(checkboxes).map(function(cb) { return cb.value; });
+
+    if (recipients.length === 0) {
+      alert('Please select at least one email to retry');
+      return;
+    }
+
+    if (!confirm('Retry sending to ' + recipients.length + ' recipient(s)?')) {
+      return;
+    }
+
+    $('retryBtn').disabled = true;
+    $('retryBtn').textContent = 'Sending...';
+
+    try {
+      var res = await fetch('/api/dashboard/emails/retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipients: recipients })
+      });
+      var data = await res.json();
+
+      if (data.ok) {
+        alert(data.message);
+        loadFailedEmails(); // Reload the list
+      } else {
+        alert('Error: ' + (data.message || 'Unknown error'));
+        $('retryBtn').disabled = false;
+        $('retryBtn').innerHTML = 'Retry Selected (<span id="selectedCount">' + recipients.length + '</span>)';
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+      $('retryBtn').disabled = false;
+      $('retryBtn').innerHTML = 'Retry Selected (<span id="selectedCount">' + recipients.length + '</span>)';
+    }
   }
 
   async function loadPending() {

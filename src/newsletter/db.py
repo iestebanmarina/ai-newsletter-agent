@@ -1055,6 +1055,37 @@ def get_failed_emails(db_path: str, days: int = 7) -> list[dict]:
     ]
 
 
+def get_email_sends(db_path: str, limit: int = 5) -> list[dict]:
+    """Get recent email sends grouped by pipeline_run_id, showing each batch."""
+    conn = get_connection(db_path)
+    rows = conn.execute(
+        """SELECT pipeline_run_id,
+                  COUNT(*) as total,
+                  SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
+                  SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                  MIN(created_at) as started_at,
+                  MAX(created_at) as finished_at
+           FROM email_log
+           WHERE pipeline_run_id != ''
+           GROUP BY pipeline_run_id
+           ORDER BY MAX(id) DESC
+           LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "pipeline_run_id": r[0],
+            "total": r[1],
+            "sent": r[2],
+            "failed": r[3],
+            "started_at": r[4],
+            "finished_at": r[5],
+        }
+        for r in rows
+    ]
+
+
 def get_last_newsletter_emails(db_path: str) -> dict:
     """Get email logs from the most recent newsletter send (excludes manual retries)."""
     conn = get_connection(db_path)

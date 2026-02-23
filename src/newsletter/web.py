@@ -19,6 +19,7 @@ from .db import (
     delete_pending_newsletter,
     get_api_usage_stats,
     get_article_stats,
+    get_email_sends,
     get_email_stats,
     get_failed_emails,
     get_history_entries,
@@ -315,11 +316,13 @@ async def api_emails(dashboard_token: str | None = Cookie(default=None)):
         return err
     stats = get_email_stats(settings.database_path)
     last = get_last_newsletter_emails(settings.database_path)
+    sends = get_email_sends(settings.database_path)
     return {
         "total_sent": stats["total_sent"],
         "total_failed": stats["total_failed"],
         "pipeline_run_id": last["pipeline_run_id"],
         "recent": last["recent"],
+        "sends": sends,
     }
 
 

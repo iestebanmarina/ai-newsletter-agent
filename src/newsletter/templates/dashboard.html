@@ -573,6 +573,17 @@
     </div>
   </div>
 
+  <!-- Send history (batches) -->
+  <div class="section">
+    <h2>Send History</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Run ID</th><th>Sent</th><th>Failed</th><th>Total</th><th>Date</th></tr></thead>
+        <tbody id="tableSendHistory"><tr><td colspan="5">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Recent emails -->
   <div class="section">
     <h2>Recent Emails <span id="recentEmailsRunId" style="font-size:11px;color:#404040;text-transform:none;letter-spacing:0;font-weight:400;"></span></h2>
@@ -783,6 +794,20 @@
     } else {
       $('recentEmailsRunId').textContent = '';
     }
+
+    // Send history (batches)
+    var shHtml = '';
+    (data.sends || []).forEach(function(s) {
+      var failCls = s.failed > 0 ? ' style="color:#f87171;"' : '';
+      shHtml += '<tr>'
+        + '<td style="font-family:monospace;font-size:12px;">' + esc(s.pipeline_run_id) + '</td>'
+        + '<td class="status-completed">' + s.sent + '</td>'
+        + '<td' + failCls + '>' + s.failed + '</td>'
+        + '<td>' + s.total + '</td>'
+        + '<td>' + fmtDate(s.started_at) + '</td>'
+        + '</tr>';
+    });
+    $('tableSendHistory').innerHTML = shHtml || '<tr><td colspan="5">No sends yet</td></tr>';
 
     var html = '';
     (data.recent || []).forEach(function(r) {

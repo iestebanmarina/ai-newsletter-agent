@@ -68,18 +68,28 @@ def _check_auth(token: str | None) -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db(settings.database_path)
+    db_path = settings.database_path
+    db_existed = Path(db_path).exists()
+
+    init_db(db_path)
     # Migrate env var subscribers to DB
     env_emails = settings.subscriber_list
     if env_emails:
         migrated = 0
         for email in env_emails:
-            if add_subscriber(settings.database_path, email.strip().lower()):
+            if add_subscriber(db_path, email.strip().lower()):
                 migrated += 1
         if migrated:
             logger.info(f"Migrated {migrated} env subscribers to DB")
-    start_scheduler_thread()
-    logger.info("Scheduler thread started")
+
+    if db_existed:
+        start_scheduler_thread()
+        logger.info("Scheduler started (existing database detected)")
+    else:
+        logger.warning(
+            f"NEW database created at {db_path} — scheduler NOT started. "
+            "If this is production, the volume may not be mounted."
+        )
     yield
 
 

@@ -23,6 +23,7 @@ from .db import (
     cleanup_stale_runs,
     create_pipeline_run,
     get_active_subscribers,
+    get_pipeline_runs,
     get_articles_for_newsletter,
     get_pending_newsletter,
     get_uncurated_articles,
@@ -127,6 +128,25 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
         start_time = time.time()
 
         try:
+            # Safety: refuse to send from a freshly-created DB (ephemeral container)
+            runs = get_pipeline_runs(db_path, limit=5)
+            five_min_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+            has_history = any(r.get("started_at", "") < five_min_ago for r in runs)
+            if not has_history:
+                logger.error(
+                    "SAFETY: No pipeline history older than 5 minutes. "
+                    "Refusing to send to subscribers (possible ephemeral container)."
+                )
+                duration = time.time() - start_time
+                update_pipeline_run(
+                    db_path, run_id,
+                    status="failed",
+                    finished_at=datetime.utcnow().isoformat(),
+                    duration_seconds=round(duration, 2),
+                    error_message="Safety check failed: no pipeline history older than 5 minutes",
+                )
+                return
+
             all_subscribers = sorted(get_active_subscribers(db_path))
             logger.info(f"Sending pending newsletter {pending['id']} to {len(all_subscribers)} subscribers")
 
@@ -394,6 +414,26 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
         else:
             # Full mode: send to all subscribers
             logger.info("=== Step 6: Sending newsletter ===")
+
+            # Safety: refuse to send from a freshly-created DB (ephemeral container)
+            runs = get_pipeline_runs(db_path, limit=5)
+            five_min_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+            has_history = any(r.get("started_at", "") < five_min_ago for r in runs)
+            if not has_history:
+                logger.error(
+                    "SAFETY: No pipeline history older than 5 minutes. "
+                    "Refusing to send to subscribers (possible ephemeral container)."
+                )
+                duration = time.time() - start_time
+                update_pipeline_run(
+                    db_path, run_id,
+                    status="failed",
+                    finished_at=datetime.utcnow().isoformat(),
+                    duration_seconds=round(duration, 2),
+                    error_message="Safety check failed: no pipeline history older than 5 minutes",
+                )
+                return
+
             all_subscribers = sorted(get_active_subscribers(db_path))
             logger.info(f"Sending to {len(all_subscribers)} subscribers")
 

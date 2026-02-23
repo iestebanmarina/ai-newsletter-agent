@@ -17,8 +17,10 @@ from .db import (
     add_subscriber,
     delete_history_entry,
     delete_pending_newsletter,
+    get_api_cost_breakdown,
     get_api_usage_stats,
     get_article_stats,
+    get_db_diagnostic,
     get_email_sends,
     get_email_stats,
     get_failed_emails,
@@ -306,7 +308,11 @@ async def api_costs(dashboard_token: str | None = Cookie(default=None)):
     err = _require_auth(dashboard_token)
     if err:
         return err
-    return get_api_usage_stats(settings.database_path)
+    stats = get_api_usage_stats(settings.database_path)
+    breakdown = get_api_cost_breakdown(settings.database_path)
+    stats["by_step"] = breakdown["by_step"]
+    stats["by_model"] = breakdown["by_model"]
+    return stats
 
 
 @app.get("/api/dashboard/emails")
@@ -556,3 +562,11 @@ async def trigger_pipeline(
     t = threading.Thread(target=run_pipeline, kwargs=kwargs, daemon=True)
     t.start()
     return {"ok": True, "message": f"Pipeline triggered ({mode}). Check pipeline runs for progress."}
+
+
+@app.get("/api/dashboard/db-diagnostic")
+async def api_db_diagnostic(dashboard_token: str | None = Cookie(default=None)):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    return get_db_diagnostic(settings.database_path)

@@ -122,7 +122,7 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
             logger.warning("Could not parse newsletter created_at, proceeding anyway")
 
         # Create a pipeline run for tracking
-        run_id = create_pipeline_run(db_path)
+        run_id = create_pipeline_run(db_path, mode="send-pending")
         logger.info(f"Pipeline run {run_id} started (mode=send-pending)")
         start_time = time.time()
 
@@ -192,7 +192,8 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
         sys.exit(1)
 
     # Create pipeline run and set context on curator/generator
-    run_id = create_pipeline_run(db_path)
+    effective_mode = "dry-run" if dry_run else mode
+    run_id = create_pipeline_run(db_path, mode=effective_mode)
     set_curator_context(db_path, run_id)
     set_generator_context(db_path, run_id)
     logger.info(f"Pipeline run {run_id} started (mode={mode})")

@@ -233,6 +233,12 @@ def init_db(db_path: str) -> None:
             error_message TEXT DEFAULT ''
         )
     """)
+    # Add mode column to pipeline_runs
+    try:
+        conn.execute("ALTER TABLE pipeline_runs ADD COLUMN mode TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
     conn.commit()
     conn.close()
 
@@ -619,7 +625,7 @@ def get_pending_newsletters(db_path: str, limit: int = 10, include_sent: bool = 
     conn = get_connection(db_path)
     if include_sent:
         rows = conn.execute(
-            """SELECT id, subject, created_at, status, sent_at
+            """SELECT id, pipeline_run_id, subject, created_at, status, sent_at
                FROM pending_newsletters
                ORDER BY created_at DESC
                LIMIT ?""",
@@ -627,7 +633,7 @@ def get_pending_newsletters(db_path: str, limit: int = 10, include_sent: bool = 
         ).fetchall()
     else:
         rows = conn.execute(
-            """SELECT id, subject, created_at, status, sent_at
+            """SELECT id, pipeline_run_id, subject, created_at, status, sent_at
                FROM pending_newsletters
                WHERE status = 'pending'
                ORDER BY created_at DESC
@@ -922,13 +928,13 @@ def cleanup_stale_runs(db_path: str, max_minutes: int = 15) -> int:
     return count
 
 
-def create_pipeline_run(db_path: str) -> str:
+def create_pipeline_run(db_path: str, mode: str = "") -> str:
     """Create a new pipeline run record. Returns the run id."""
     run_id = uuid.uuid4().hex[:12]
     conn = get_connection(db_path)
     conn.execute(
-        "INSERT INTO pipeline_runs (id, status, started_at) VALUES (?, 'running', ?)",
-        (run_id, datetime.utcnow().isoformat()),
+        "INSERT INTO pipeline_runs (id, status, started_at, mode) VALUES (?, 'running', ?, ?)",
+        (run_id, datetime.utcnow().isoformat(), mode),
     )
     conn.commit()
     conn.close()
@@ -1011,6 +1017,34 @@ def get_api_usage_stats(db_path: str) -> dict:
         "total_input_tokens": total_tokens[0],
         "total_output_tokens": total_tokens[1],
         "by_run": [{"run_id": r[0], "cost": round(r[1], 4), "input_tokens": r[2], "output_tokens": r[3]} for r in by_run],
+    }
+
+
+def get_api_cost_breakdown(db_path: str) -> dict:
+    """Get API cost breakdown by step and by model."""
+    conn = get_connection(db_path)
+    by_step = conn.execute(
+        """SELECT step, SUM(estimated_cost_usd) as total_cost,
+                  SUM(input_tokens) as total_input, SUM(output_tokens) as total_output
+           FROM api_usage WHERE step != ''
+           GROUP BY step ORDER BY total_cost DESC"""
+    ).fetchall()
+    by_model = conn.execute(
+        """SELECT model, SUM(estimated_cost_usd) as total_cost,
+                  SUM(input_tokens) as total_input, SUM(output_tokens) as total_output
+           FROM api_usage
+           GROUP BY model ORDER BY total_cost DESC"""
+    ).fetchall()
+    conn.close()
+    return {
+        "by_step": [
+            {"step": r[0], "total_cost": round(r[1], 4), "total_input": r[2], "total_output": r[3]}
+            for r in by_step
+        ],
+        "by_model": [
+            {"model": r[0], "total_cost": round(r[1], 4), "total_input": r[2], "total_output": r[3]}
+            for r in by_model
+        ],
     }
 
 
@@ -1133,6 +1167,60 @@ def get_pipeline_runs(db_path: str, limit: int = 20) -> list[dict]:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_db_diagnostic(db_path: str) -> dict:
+    """Get a full diagnostic snapshot of the database for ad-hoc debugging."""
+    conn = get_connection(db_path)
+
+    # Table row counts
+    tables = ["articles", "subscribers", "email_log", "pipeline_runs",
+              "pending_newsletters", "newsletter_history", "api_usage"]
+    table_counts = {}
+    for table in tables:
+        try:
+            count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            table_counts[table] = count
+        except Exception:
+            table_counts[table] = -1
+
+    # Pending newsletters (without heavy columns)
+    try:
+        pending = conn.execute(
+            """SELECT id, pipeline_run_id, subject, status, created_at, sent_at
+               FROM pending_newsletters ORDER BY created_at DESC"""
+        ).fetchall()
+        pending_list = [dict(r) for r in pending]
+    except Exception:
+        pending_list = []
+
+    # Recent email log (last 50)
+    try:
+        emails = conn.execute(
+            """SELECT id, pipeline_run_id, recipient, status, error_message,
+                      COALESCE(retry_status, '') as retry_status, created_at
+               FROM email_log ORDER BY id DESC LIMIT 50"""
+        ).fetchall()
+        email_list = [dict(r) for r in emails]
+    except Exception:
+        email_list = []
+
+    # Recent pipeline runs (last 20, including mode)
+    try:
+        runs = conn.execute(
+            "SELECT * FROM pipeline_runs ORDER BY started_at DESC LIMIT 20"
+        ).fetchall()
+        runs_list = [dict(r) for r in runs]
+    except Exception:
+        runs_list = []
+
+    conn.close()
+    return {
+        "table_counts": table_counts,
+        "pending_newsletters": pending_list,
+        "recent_email_log": email_list,
+        "recent_pipeline_runs": runs_list,
+    }
 
 
 def _row_to_article(row: sqlite3.Row) -> Article:

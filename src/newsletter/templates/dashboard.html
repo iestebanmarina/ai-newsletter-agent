@@ -510,6 +510,28 @@
     </div>
   </div>
 
+  <!-- Cost breakdown by step and model -->
+  <div class="two-col">
+    <div class="section">
+      <h2>Cost By Step</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step</th><th>Input Tok</th><th>Output Tok</th><th>Cost</th></tr></thead>
+          <tbody id="tableCostByStep"><tr><td colspan="4">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <h2>Cost By Model</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Model</th><th>Input Tok</th><th>Output Tok</th><th>Cost</th></tr></thead>
+          <tbody id="tableCostByModel"><tr><td colspan="4">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- Cost per run -->
   <div class="section">
     <h2>API Cost / Run</h2>
@@ -526,8 +548,8 @@
     <h2>Newsletters</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Subject</th><th>Status</th><th>Created</th><th>Sent</th><th>Actions</th></tr></thead>
-        <tbody id="tablePending"><tr><td colspan="5">Loading...</td></tr></tbody>
+        <thead><tr><th>Subject</th><th>Run ID</th><th>Status</th><th>Created</th><th>Sent</th><th>Actions</th></tr></thead>
+        <tbody id="tablePending"><tr><td colspan="6">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -564,11 +586,11 @@
       <table>
         <thead>
           <tr>
-            <th>ID</th><th>Status</th><th>Started</th><th>Duration</th>
+            <th>ID</th><th>Mode</th><th>Status</th><th>Started</th><th>Duration</th>
             <th>Collected</th><th>Curated</th><th>Emails</th><th>Error</th>
           </tr>
         </thead>
-        <tbody id="tablePipelineRuns"><tr><td colspan="8">Loading...</td></tr></tbody>
+        <tbody id="tablePipelineRuns"><tr><td colspan="9">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -781,6 +803,20 @@
       html += '<tr><td>' + esc(r.run_id) + '</td><td>' + fmt(r.input_tokens) + '</td><td>' + fmt(r.output_tokens) + '</td><td>' + fmtUsd(r.cost) + '</td></tr>';
     });
     $('tableCostByRun').innerHTML = html || '<tr><td colspan="4">No data</td></tr>';
+
+    // By Step breakdown
+    var stepHtml = '';
+    (data.by_step || []).forEach(function(r) {
+      stepHtml += '<tr><td>' + esc(r.step) + '</td><td>' + fmt(r.total_input) + '</td><td>' + fmt(r.total_output) + '</td><td>' + fmtUsd(r.total_cost) + '</td></tr>';
+    });
+    $('tableCostByStep').innerHTML = stepHtml || '<tr><td colspan="4">No data</td></tr>';
+
+    // By Model breakdown
+    var modelHtml = '';
+    (data.by_model || []).forEach(function(r) {
+      modelHtml += '<tr><td>' + esc(r.model) + '</td><td>' + fmt(r.total_input) + '</td><td>' + fmt(r.total_output) + '</td><td>' + fmtUsd(r.total_cost) + '</td></tr>';
+    });
+    $('tableCostByModel').innerHTML = modelHtml || '<tr><td colspan="4">No data</td></tr>';
   }
 
   async function loadEmails() {
@@ -936,13 +972,14 @@
       }
       html += '<tr>'
         + '<td>' + esc(r.subject) + '</td>'
+        + '<td style="font-family:monospace;font-size:11px;color:#737373;">' + esc(r.pipeline_run_id || '-') + '</td>'
         + '<td>' + statusBadge + '</td>'
         + '<td>' + fmtDate(r.created_at) + '</td>'
         + '<td>' + (r.sent_at ? fmtDate(r.sent_at) : '—') + '</td>'
         + '<td>' + actions + '</td>'
         + '</tr>';
     });
-    $('tablePending').innerHTML = html || '<tr><td colspan="5">No newsletters</td></tr>';
+    $('tablePending').innerHTML = html || '<tr><td colspan="6">No newsletters</td></tr>';
   }
 
   async function loadPipelineRuns() {
@@ -951,8 +988,10 @@
     var html = '';
     (data || []).forEach(function(r) {
       var cls = 'status-' + r.status;
+      var modeLabel = r.mode || '-';
       html += '<tr>'
         + '<td>' + esc(r.id) + '</td>'
+        + '<td style="font-size:11px;color:#a78bfa;">' + esc(modeLabel) + '</td>'
         + '<td class="' + cls + '">' + esc(r.status) + '</td>'
         + '<td>' + fmtDate(r.started_at) + '</td>'
         + '<td>' + fmtDuration(r.duration_seconds) + '</td>'
@@ -962,7 +1001,7 @@
         + '<td>' + esc(r.error_message || '') + '</td>'
         + '</tr>';
     });
-    $('tablePipelineRuns').innerHTML = html || '<tr><td colspan="8">No data</td></tr>';
+    $('tablePipelineRuns').innerHTML = html || '<tr><td colspan="9">No data</td></tr>';
   }
 
   function esc(s) {

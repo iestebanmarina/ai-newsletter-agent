@@ -66,6 +66,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Prevent concurrent pipeline executions (scheduler + manual trigger)
+_pipeline_lock = threading.Lock()
+
 
 def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
     """Execute the newsletter pipeline.
@@ -75,6 +78,18 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
       - "preview": collect, curate, generate, save as pending, send ONLY to review_email
       - "send-pending": skip generation, send most recent pending newsletter to all subscribers
     """
+    if not _pipeline_lock.acquire(blocking=False):
+        logger.warning("Pipeline already running, skipping this invocation")
+        return
+
+    try:
+        _run_pipeline_impl(dry_run=dry_run, mode=mode)
+    finally:
+        _pipeline_lock.release()
+
+
+def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
+    """Internal pipeline implementation (called with lock held)."""
     db_path = settings.database_path
     init_db(db_path)
 
@@ -93,34 +108,80 @@ def run_pipeline(dry_run: bool = False, mode: str = "full") -> None:
             logger.warning("No pending newsletter found, nothing to send")
             return
 
-        all_subscribers = sorted(get_active_subscribers(db_path))
-        logger.info(f"Sending pending newsletter {pending['id']} to {len(all_subscribers)} subscribers")
+        # Guard against sending stale newsletters (e.g. forgotten dry-runs)
+        try:
+            created_at = datetime.fromisoformat(pending["created_at"])
+            age = datetime.utcnow() - created_at
+            if age > timedelta(days=7):
+                logger.warning(
+                    f"Skipping stale newsletter {pending['id']} "
+                    f"(created {age.days} days ago on {pending['created_at']})"
+                )
+                return
+        except (ValueError, KeyError):
+            logger.warning("Could not parse newsletter created_at, proceeding anyway")
 
-        email_result = send_newsletter(
-            html_content=pending["html_content"],
-            from_email=settings.newsletter_from_email,
-            subscribers=all_subscribers,
-            api_key=settings.resend_api_key,
-            base_url=settings.base_url,
-            db_path=db_path,
-            pipeline_run_id=pending.get("pipeline_run_id", ""),
-            subject=pending["subject"],
-        )
+        # Create a pipeline run for tracking
+        run_id = create_pipeline_run(db_path)
+        logger.info(f"Pipeline run {run_id} started (mode=send-pending)")
+        start_time = time.time()
 
-        if email_result["sent"] > 0:
-            mark_newsletter_sent(db_path, pending["id"])
-            # Save to history now that the newsletter has been sent to subscribers
-            try:
-                data = json.loads(pending.get("json_data", "{}"))
-                history = get_history(db_path)
-                week_number = len(history) + 1
-                save_to_history(db_path, data, week_number)
-                logger.info(f"Saved edition #{week_number} to history")
-            except Exception:
-                logger.exception("Failed to save to history")
-            logger.info(f"Newsletter sent: {email_result['sent']} ok, {email_result['failed']} failed")
-        else:
-            logger.error("Newsletter sending failed")
+        try:
+            all_subscribers = sorted(get_active_subscribers(db_path))
+            logger.info(f"Sending pending newsletter {pending['id']} to {len(all_subscribers)} subscribers")
+
+            email_result = send_newsletter(
+                html_content=pending["html_content"],
+                from_email=settings.newsletter_from_email,
+                subscribers=all_subscribers,
+                api_key=settings.resend_api_key,
+                base_url=settings.base_url,
+                db_path=db_path,
+                pipeline_run_id=run_id,
+                subject=pending["subject"],
+            )
+
+            update_pipeline_run(
+                db_path, run_id,
+                emails_sent=email_result["sent"],
+                emails_failed=email_result["failed"],
+            )
+
+            if email_result["sent"] > 0:
+                mark_newsletter_sent(db_path, pending["id"])
+                # Save to history now that the newsletter has been sent to subscribers
+                try:
+                    data = json.loads(pending.get("json_data", "{}"))
+                    history = get_history(db_path)
+                    week_number = len(history) + 1
+                    save_to_history(db_path, data, week_number)
+                    logger.info(f"Saved edition #{week_number} to history")
+                except Exception:
+                    logger.exception("Failed to save to history")
+                logger.info(f"Newsletter sent: {email_result['sent']} ok, {email_result['failed']} failed")
+            else:
+                logger.error("Newsletter sending failed")
+
+            duration = time.time() - start_time
+            update_pipeline_run(
+                db_path, run_id,
+                status="completed",
+                finished_at=datetime.utcnow().isoformat(),
+                duration_seconds=round(duration, 2),
+            )
+            logger.info(f"Pipeline run {run_id} completed in {duration:.1f}s")
+
+        except Exception as exc:
+            duration = time.time() - start_time
+            update_pipeline_run(
+                db_path, run_id,
+                status="failed",
+                finished_at=datetime.utcnow().isoformat(),
+                duration_seconds=round(duration, 2),
+                error_message=str(exc),
+            )
+            logger.exception(f"Pipeline run {run_id} failed after {duration:.1f}s")
+            raise
         return
 
     # ------------------------------------------------------------------

@@ -521,13 +521,13 @@
     </div>
   </div>
 
-  <!-- Pending newsletters -->
+  <!-- Newsletters (pending + sent) -->
   <div class="section">
-    <h2>Pending Newsletters</h2>
+    <h2>Newsletters</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Subject</th><th>Created</th><th>Actions</th></tr></thead>
-        <tbody id="tablePending"><tr><td colspan="3">Loading...</td></tr></tbody>
+        <thead><tr><th>Subject</th><th>Status</th><th>Created</th><th>Sent</th><th>Actions</th></tr></thead>
+        <tbody id="tablePending"><tr><td colspan="5">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -897,16 +897,27 @@
     if (!data) return;
     var html = '';
     (data || []).forEach(function(r) {
+      var isPending = r.status === 'pending';
+      var statusBadge = isPending
+        ? '<span style="color:#f59e0b;font-weight:600;">pending</span>'
+        : '<span style="color:#34d399;font-weight:600;">sent</span>';
+      var actions = '<a href="/newsletter/' + encodeURIComponent(r.id) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">View</a>'
+        + ' &middot; <a href="#" onclick="viewLinkedIn(\'' + esc(r.id) + '\');return false;" style="color:#60a5fa;text-decoration:none;">LinkedIn</a>';
+      if (isPending) {
+        actions += ' &middot; <a href="#" onclick="editPending(\'' + esc(r.id) + '\');return false;" style="color:#34d399;text-decoration:none;">Edit</a>'
+          + ' &middot; <a href="#" onclick="deletePending(\'' + esc(r.id) + '\');return false;" style="color:#f87171;text-decoration:none;">Delete</a>';
+      } else {
+        actions += ' &middot; <a href="#" onclick="requeueNewsletter(\'' + esc(r.id) + '\');return false;" style="color:#a78bfa;text-decoration:none;">Requeue</a>';
+      }
       html += '<tr>'
         + '<td>' + esc(r.subject) + '</td>'
+        + '<td>' + statusBadge + '</td>'
         + '<td>' + fmtDate(r.created_at) + '</td>'
-        + '<td><a href="/newsletter/' + encodeURIComponent(r.id) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">View</a>'
-        + ' &middot; <a href="#" onclick="viewLinkedIn(\'' + esc(r.id) + '\');return false;" style="color:#60a5fa;text-decoration:none;">LinkedIn</a>'
-        + ' &middot; <a href="#" onclick="editPending(\'' + esc(r.id) + '\');return false;" style="color:#34d399;text-decoration:none;">Edit</a>'
-        + ' &middot; <a href="#" onclick="deletePending(\'' + esc(r.id) + '\');return false;" style="color:#f87171;text-decoration:none;">Delete</a></td>'
+        + '<td>' + (r.sent_at ? fmtDate(r.sent_at) : '—') + '</td>'
+        + '<td>' + actions + '</td>'
         + '</tr>';
     });
-    $('tablePending').innerHTML = html || '<tr><td colspan="3">No pending newsletters</td></tr>';
+    $('tablePending').innerHTML = html || '<tr><td colspan="5">No newsletters</td></tr>';
   }
 
   async function loadPipelineRuns() {
@@ -1127,6 +1138,22 @@
       }
     } catch(e) {
       showToast('Error deleting newsletter');
+    }
+  };
+
+  window.requeueNewsletter = async function(id) {
+    if (!confirm('Move this newsletter back to pending?')) return;
+    try {
+      var res = await fetch('/api/dashboard/pending-newsletters/' + encodeURIComponent(id) + '/requeue', {method: 'POST'});
+      var data = await res.json();
+      if (res.ok) {
+        showToast('Newsletter moved back to pending');
+        loadPending();
+      } else {
+        showToast(data.message || 'Failed to requeue');
+      }
+    } catch(e) {
+      showToast('Error requeuing newsletter');
     }
   };
 

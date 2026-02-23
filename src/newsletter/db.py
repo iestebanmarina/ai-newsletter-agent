@@ -611,17 +611,29 @@ def get_linkedin_post(db_path: str, newsletter_id: str) -> str | None:
     return row["linkedin_post"]
 
 
-def get_pending_newsletters(db_path: str, limit: int = 10) -> list[dict]:
-    """Get pending newsletters (without html_content for performance)."""
+def get_pending_newsletters(db_path: str, limit: int = 10, include_sent: bool = False) -> list[dict]:
+    """Get newsletters from pending_newsletters table (without html_content for performance).
+
+    If include_sent is True, returns both pending and sent entries.
+    """
     conn = get_connection(db_path)
-    rows = conn.execute(
-        """SELECT id, subject, created_at, status
-           FROM pending_newsletters
-           WHERE status = 'pending'
-           ORDER BY created_at DESC
-           LIMIT ?""",
-        (limit,),
-    ).fetchall()
+    if include_sent:
+        rows = conn.execute(
+            """SELECT id, subject, created_at, status, sent_at
+               FROM pending_newsletters
+               ORDER BY created_at DESC
+               LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """SELECT id, subject, created_at, status, sent_at
+               FROM pending_newsletters
+               WHERE status = 'pending'
+               ORDER BY created_at DESC
+               LIMIT ?""",
+            (limit,),
+        ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 

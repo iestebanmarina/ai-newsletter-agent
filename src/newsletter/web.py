@@ -443,7 +443,7 @@ async def api_pending_newsletters(dashboard_token: str | None = Cookie(default=N
     err = _require_auth(dashboard_token)
     if err:
         return err
-    return get_pending_newsletters(settings.database_path)
+    return get_pending_newsletters(settings.database_path, include_sent=True)
 
 
 @app.delete("/api/dashboard/pending-newsletters/{newsletter_id}")

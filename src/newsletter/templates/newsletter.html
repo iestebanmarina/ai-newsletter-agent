@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
 <title>{{ subject_line }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +19,8 @@
     line-height: 1.7;
     background-image: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
     background-size: 24px 24px;
+    color-scheme: dark;
+    supported-color-schemes: dark;
   }
 
   .container {
@@ -433,9 +437,23 @@
     color: #f59e0b;
     text-decoration: none;
   }
+
+  @media (prefers-color-scheme: dark) {
+    body,
+    .container,
+    .translate-block,
+    .prompt-box,
+    .example-box,
+    .ba-col,
+    .ba-insight,
+    .challenge-level,
+    .challenge-learn {
+      background-color: #000000 !important;
+    }
+  }
 </style>
 </head>
-<body bgcolor="#000000" style="margin:0;padding:0;background-color:#000000;color:#d4d4d4;font-family:'Inter',-apple-system,sans-serif;line-height:1.7;">
+<body bgcolor="#000000" style="margin:0;padding:0;background-color:#000000;color:#d4d4d4;font-family:'Inter',-apple-system,sans-serif;line-height:1.7;color-scheme:dark;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="background-color:#000000;"><tr><td align="center">
 <div class="container" style="background-color:#000000;">
 

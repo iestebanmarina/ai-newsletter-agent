@@ -11,6 +11,7 @@ from pathlib import Path
 import schedule
 
 from .collectors.bluesky import BlueskyCollector
+from .collectors.editor_picks import EditorPicksCollector
 from .collectors.google_news import GoogleNewsCollector
 from .collectors.huggingface import HuggingFaceCollector
 from .collectors.reddit import RedditCollector
@@ -25,11 +26,14 @@ from .db import (
     get_active_subscribers,
     get_pipeline_runs,
     get_articles_for_newsletter,
+    get_history,
     get_pending_newsletter,
+    get_recent_radar_topics,
     get_uncurated_articles,
     init_db,
     insert_articles,
     mark_as_sent,
+    mark_editor_picks_used_by_urls,
     mark_newsletter_sent,
     save_linkedin_post,
     save_pending_newsletter,
@@ -226,6 +230,7 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
         all_articles = []
 
         collectors = [
+            EditorPicksCollector(db_path=db_path),
             RSSCollector(feed_urls=settings.rss_feeds),
             RSSCollector(feed_urls=settings.expert_rss_feeds),
             GoogleNewsCollector(queries=settings.google_news_queries),
@@ -296,16 +301,27 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
             logger.info("No uncurated articles to process")
         update_pipeline_run(db_path, run_id, articles_curated=curated_count)
 
-        # Step 4: Select top articles
+        # Step 4: Select top articles (with topic decay from recent editions)
         logger.info("=== Step 4: Selecting top articles ===")
+        history = get_history(db_path)
+        recent_topics = get_recent_radar_topics(history, editions=2)
+        if recent_topics:
+            logger.info(f"Topic decay active for {len(recent_topics)} recent topics")
         top_articles = get_articles_for_newsletter(
             db_path,
             limit=settings.max_articles_per_newsletter,
             max_same_source=settings.max_articles_same_source,
             min_papers=settings.min_papers_per_newsletter,
             min_expert=settings.min_expert_per_newsletter,
+            recent_topics=recent_topics,
         )
         logger.info(f"Selected {len(top_articles)} articles for newsletter")
+
+        # Mark editor picks that made it into the newsletter as used
+        editor_pick_urls = [a.url for a in top_articles if a.source == "Editor Pick"]
+        if editor_pick_urls:
+            marked = mark_editor_picks_used_by_urls(db_path, editor_pick_urls)
+            logger.info(f"Marked {marked} editor pick(s) as used")
 
         if not top_articles:
             logger.warning("No articles available for newsletter, aborting")
@@ -358,6 +374,7 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
             nl_id = save_pending_newsletter(
                 db_path, run_id, subject, newsletter.html_content,
                 json_data=newsletter.json_data,
+                editor_note=newsletter.editor_note,
             )
             if linkedin_post:
                 save_linkedin_post(db_path, nl_id, linkedin_post)
@@ -386,6 +403,7 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
             nl_id = save_pending_newsletter(
                 db_path, run_id, subject, newsletter.html_content,
                 json_data=newsletter.json_data,
+                editor_note=newsletter.editor_note,
             )
             if linkedin_post:
                 save_linkedin_post(db_path, nl_id, linkedin_post)
@@ -458,6 +476,7 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
                 nl_id = save_pending_newsletter(
                     db_path, run_id, subject, newsletter.html_content,
                     json_data=newsletter.json_data,
+                    editor_note=newsletter.editor_note,
                 )
                 if linkedin_post:
                     save_linkedin_post(db_path, nl_id, linkedin_post)

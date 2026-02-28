@@ -17,7 +17,7 @@ def get_history(db_path: str) -> list[dict]:
             """SELECT edition_date, subject_line, signal_topic, signal_url,
                       translate_concept, use_this_topic, use_this_difficulty,
                       before_after_task, challenge_topic, challenge_difficulty,
-                      challenge_week_number, radar_urls
+                      challenge_week_number, radar_urls, radar_topics
                FROM newsletter_history ORDER BY id ASC"""
         ).fetchall()
     except Exception:
@@ -34,6 +34,7 @@ def save_to_history(db_path: str, data: dict, week_number: int) -> None:
     ba = data.get("before_after", {})
     challenge = data.get("challenge", {})
     radar_urls = json.dumps([r.get("url", "") for r in data.get("radar", [])])
+    radar_topics = json.dumps(data.get("radar_topics", []))
 
     conn = get_connection(db_path)
     conn.execute(
@@ -41,8 +42,8 @@ def save_to_history(db_path: str, data: dict, week_number: int) -> None:
            (edition_date, subject_line, signal_topic, signal_url,
             translate_concept, use_this_topic, use_this_difficulty,
             before_after_task, challenge_topic, challenge_difficulty,
-            challenge_week_number, radar_urls, full_json)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            challenge_week_number, radar_urls, radar_topics, full_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             datetime.utcnow().strftime("%Y-%m-%d"),
             data.get("subject_line", ""),
@@ -56,6 +57,7 @@ def save_to_history(db_path: str, data: dict, week_number: int) -> None:
             "multi-level",
             week_number,
             radar_urls,
+            radar_topics,
             json.dumps(data, ensure_ascii=False),
         ),
     )
@@ -97,6 +99,13 @@ def build_history_context(history: list[dict]) -> str:
         lines.append(f"  Use This: {h['use_this_topic']} ({h['use_this_difficulty']})")
         lines.append(f"  Before->After: {h['before_after_task']}")
         lines.append(f"  Challenge theme: {h['challenge_topic'][:120]}")
+        radar_topics = h.get("radar_topics", "[]")
+        try:
+            topics_list = json.loads(radar_topics) if isinstance(radar_topics, str) else (radar_topics or [])
+        except (json.JSONDecodeError, TypeError):
+            topics_list = []
+        if topics_list:
+            lines.append(f"  Radar topics: {', '.join(topics_list)}")
         lines.append("")
 
     concepts_covered = [h["translate_concept"] for h in history if h["translate_concept"]]
@@ -108,7 +117,32 @@ def build_history_context(history: list[dict]) -> str:
         lines.append(f"CHALLENGE themes already covered: {', '.join(challenge_themes)}")
     lines.append("Remember: each challenge must teach a DIFFERENT core skill from all previous editions.")
 
+    # Collect recent radar topics (last 2 editions) for topic decay reference
+    recent_topics: list[str] = []
+    for h in history[-2:]:
+        raw = h.get("radar_topics", "[]")
+        try:
+            tlist = json.loads(raw) if isinstance(raw, str) else (raw or [])
+        except (json.JSONDecodeError, TypeError):
+            tlist = []
+        recent_topics.extend(tlist)
+    if recent_topics:
+        lines.append(f"\nRECENT RADAR TOPICS (last 2 editions — avoid repeating these): {', '.join(set(recent_topics))}")
+
     return "\n".join(lines)
+
+
+def get_recent_radar_topics(history: list[dict], editions: int = 2) -> list[str]:
+    """Extract flat list of radar topic strings from the last N editions."""
+    topics: list[str] = []
+    for h in history[-editions:]:
+        raw = h.get("radar_topics", "[]")
+        try:
+            tlist = json.loads(raw) if isinstance(raw, str) else (raw or [])
+        except (json.JSONDecodeError, TypeError):
+            tlist = []
+        topics.extend(tlist)
+    return list(set(topics))
 
 
 def get_connection(db_path: str) -> sqlite3.Connection:
@@ -215,9 +249,15 @@ def init_db(db_path: str) -> None:
             challenge_difficulty TEXT,
             challenge_week_number INTEGER,
             radar_urls TEXT DEFAULT '[]',
+            radar_topics TEXT DEFAULT '[]',
             full_json TEXT
         )
     """)
+    # Migration: add radar_topics if upgrading from older schema
+    try:
+        conn.execute("ALTER TABLE newsletter_history ADD COLUMN radar_topics TEXT DEFAULT '[]'")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS pipeline_runs (
             id TEXT PRIMARY KEY,
@@ -238,6 +278,25 @@ def init_db(db_path: str) -> None:
         conn.execute("ALTER TABLE pipeline_runs ADD COLUMN mode TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # Column already exists
+
+    # Migration: add editor_note to pending_newsletters
+    try:
+        conn.execute("ALTER TABLE pending_newsletters ADD COLUMN editor_note TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
+    # Editor picks: manually curated articles from Iñigo
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS editor_picks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT UNIQUE NOT NULL,
+            title TEXT DEFAULT '',
+            editor_note TEXT DEFAULT '',
+            priority TEXT DEFAULT 'normal',
+            added_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0
+        )
+    """)
 
     conn.commit()
     conn.close()
@@ -296,6 +355,7 @@ def get_articles_for_newsletter(
     max_same_source: int = 5,
     min_papers: int = 2,
     min_expert: int = 1,
+    recent_topics: list[str] | None = None,
 ) -> list[Article]:
     """Get curated, unsent articles with diversity-aware selection.
 
@@ -305,6 +365,7 @@ def get_articles_for_newsletter(
     3. Min `min_papers` research papers (HF/arXiv) if available
     4. Min `min_expert` expert voice (Bluesky/expert blogs) if available
     5. Fill remainder by score
+    6. Articles matching recent radar_topics get score * 0.65 decay
     """
     import logging
     _logger = logging.getLogger(__name__)
@@ -333,6 +394,24 @@ def get_articles_for_newsletter(
     if not all_articles:
         return []
 
+    # Apply topic score decay for articles matching recent radar topics
+    if recent_topics:
+        keywords = [t.lower() for t in recent_topics if t]
+        decayed = 0
+        for a in all_articles:
+            text = f"{a.title} {a.summary}".lower()
+            if any(kw in text for kw in keywords):
+                effective = a.final_score if a.final_score > 0 else a.relevance_score
+                a.final_score = effective * 0.65
+                decayed += 1
+        if decayed:
+            _logger.info(f"Topic decay applied to {decayed} articles matching recent topics")
+            # Re-sort after decay
+            all_articles.sort(
+                key=lambda x: x.final_score if x.final_score > 0 else x.relevance_score,
+                reverse=True,
+            )
+
     paper_sources = {"Hugging Face Papers", "arXiv"}
     expert_prefixes = ("Bluesky @",)
     expert_feeds = {
@@ -356,6 +435,9 @@ def get_articles_for_newsletter(
     def _can_add(a: Article) -> bool:
         if a.url in selected_urls:
             return False
+        # Editor picks bypass source diversity limits
+        if a.source == "Editor Pick":
+            return True
         if source_counts.get(a.source, 0) >= max_same_source:
             return False
         return True
@@ -365,9 +447,21 @@ def get_articles_for_newsletter(
         selected_urls.add(a.url)
         source_counts[a.source] = source_counts.get(a.source, 0) + 1
 
-    # 1. Reserve top article for Signal
-    if all_articles:
-        _add(all_articles[0])
+    # 0. Editor picks first — always included regardless of diversity rules
+    editor_pick_articles = [a for a in all_articles if a.source == "Editor Pick"]
+    for a in editor_pick_articles:
+        if _can_add(a):
+            _add(a)
+    if editor_pick_articles:
+        n_picked = len([a for a in selected if a.source == "Editor Pick"])
+        _logger.info(f"Editor picks: pre-selected {n_picked} articles")
+
+    # 1. Reserve top non-editor-pick article for Signal
+    non_picks = [a for a in all_articles if a.source != "Editor Pick"]
+    if non_picks:
+        top = non_picks[0]
+        if _can_add(top):
+            _add(top)
 
     # 2. Fill paper slots
     papers_added = sum(1 for a in selected if _is_paper(a))
@@ -460,16 +554,17 @@ def mark_as_sent(db_path: str, urls: list[str]) -> None:
 # ---------------------------------------------------------------------------
 
 def save_pending_newsletter(
-    db_path: str, run_id: str, subject: str, html: str, json_data: str = ""
+    db_path: str, run_id: str, subject: str, html: str, json_data: str = "",
+    editor_note: str = "",
 ) -> str:
     """Save a pending newsletter. Returns the newsletter id."""
     newsletter_id = uuid.uuid4().hex[:12]
     conn = get_connection(db_path)
     conn.execute(
         """INSERT INTO pending_newsletters
-           (id, pipeline_run_id, subject, html_content, json_data, status, created_at)
-           VALUES (?, ?, ?, ?, ?, 'pending', ?)""",
-        (newsletter_id, run_id, subject, html, json_data, datetime.utcnow().isoformat()),
+           (id, pipeline_run_id, subject, html_content, json_data, editor_note, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)""",
+        (newsletter_id, run_id, subject, html, json_data, editor_note, datetime.utcnow().isoformat()),
     )
     conn.commit()
     conn.close()
@@ -480,7 +575,8 @@ def get_pending_newsletter(db_path: str) -> dict | None:
     """Get the most recent pending newsletter, or None."""
     conn = get_connection(db_path)
     row = conn.execute(
-        """SELECT id, pipeline_run_id, subject, html_content, json_data, status, created_at, sent_at
+        """SELECT id, pipeline_run_id, subject, html_content, json_data,
+                  editor_note, status, created_at, sent_at
            FROM pending_newsletters
            WHERE status = 'pending'
            ORDER BY created_at DESC
@@ -625,7 +721,7 @@ def get_pending_newsletters(db_path: str, limit: int = 10, include_sent: bool = 
     conn = get_connection(db_path)
     if include_sent:
         rows = conn.execute(
-            """SELECT id, pipeline_run_id, subject, created_at, status, sent_at
+            """SELECT id, pipeline_run_id, subject, created_at, status, sent_at, editor_note
                FROM pending_newsletters
                ORDER BY created_at DESC
                LIMIT ?""",
@@ -633,7 +729,7 @@ def get_pending_newsletters(db_path: str, limit: int = 10, include_sent: bool = 
         ).fetchall()
     else:
         rows = conn.execute(
-            """SELECT id, pipeline_run_id, subject, created_at, status, sent_at
+            """SELECT id, pipeline_run_id, subject, created_at, status, sent_at, editor_note
                FROM pending_newsletters
                WHERE status = 'pending'
                ORDER BY created_at DESC
@@ -664,7 +760,7 @@ def get_newsletter_by_id(db_path: str, newsletter_id: str) -> dict | None:
     conn = get_connection(db_path)
     row = conn.execute(
         """SELECT id, pipeline_run_id, subject, html_content, json_data,
-                  status, created_at, sent_at
+                  editor_note, status, created_at, sent_at
            FROM pending_newsletters
            WHERE id = ?""",
         (newsletter_id,),
@@ -1221,6 +1317,94 @@ def get_db_diagnostic(db_path: str) -> dict:
         "recent_email_log": email_list,
         "recent_pipeline_runs": runs_list,
     }
+
+
+# ---------------------------------------------------------------------------
+# Editor picks
+# ---------------------------------------------------------------------------
+
+def add_editor_pick(db_path: str, url: str, title: str = "", editor_note: str = "", priority: str = "normal") -> bool:
+    """Add a manually curated article pick. Returns True if added, False if duplicate URL."""
+    conn = get_connection(db_path)
+    try:
+        conn.execute(
+            """INSERT OR IGNORE INTO editor_picks (url, title, editor_note, priority, added_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (url, title, editor_note, priority, datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+        return conn.total_changes > 0
+    finally:
+        conn.close()
+
+
+def get_editor_picks(db_path: str, unused_only: bool = True) -> list[dict]:
+    """Get editor picks, optionally filtering to unused ones only."""
+    conn = get_connection(db_path)
+    try:
+        if unused_only:
+            rows = conn.execute(
+                "SELECT * FROM editor_picks WHERE used = 0 ORDER BY priority DESC, added_at ASC"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM editor_picks ORDER BY added_at DESC LIMIT 50"
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def mark_editor_pick_used(db_path: str, pick_id: int) -> None:
+    """Mark an editor pick as used."""
+    conn = get_connection(db_path)
+    try:
+        conn.execute("UPDATE editor_picks SET used = 1 WHERE id = ?", (pick_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_editor_picks_used_by_urls(db_path: str, urls: list[str]) -> int:
+    """Mark editor picks as used by URL. Returns number of rows updated."""
+    if not urls:
+        return 0
+    conn = get_connection(db_path)
+    try:
+        placeholders = ",".join("?" * len(urls))
+        cursor = conn.execute(
+            f"UPDATE editor_picks SET used = 1 WHERE url IN ({placeholders}) AND used = 0",
+            urls,
+        )
+        conn.commit()
+        return cursor.rowcount
+    finally:
+        conn.close()
+
+
+def delete_editor_pick(db_path: str, pick_id: int) -> bool:
+    """Delete an editor pick by id. Returns True if deleted."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute("DELETE FROM editor_picks WHERE id = ?", (pick_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def update_newsletter_editor_note(db_path: str, newsletter_id: str, editor_note: str) -> bool:
+    """Update the editor note on a pending newsletter. Returns True if updated."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            "UPDATE pending_newsletters SET editor_note = ? WHERE id = ? AND status = 'pending'",
+            (editor_note, newsletter_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
 
 
 def _row_to_article(row: sqlite3.Row) -> Article:

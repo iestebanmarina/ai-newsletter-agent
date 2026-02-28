@@ -565,6 +565,23 @@
     </div>
   </div>
 
+  <!-- Editor Picks -->
+  <div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div>
+        <h2 style="margin-bottom:4px;">Editor Picks</h2>
+        <p style="font-size:12px;color:#525252;margin:0;">Manually curated articles — injected into the next pipeline run as high-priority.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddPick()" style="font-size:11px;padding:6px 14px;">+ Add URL</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>URL</th><th>Title</th><th>Note</th><th>Priority</th><th>Added</th><th>Actions</th></tr></thead>
+        <tbody id="tableEditorPicks"><tr><td colspan="6">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Subscribers list -->
   <div class="section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -654,20 +671,53 @@
 </div>
 
 <div class="modal-overlay" id="editModal" onclick="closeEdit(event)">
-  <div class="modal">
+  <div class="modal" style="max-width:560px;">
     <h3>Edit Edition</h3>
     <input type="hidden" id="editId">
     <div style="margin-bottom:16px;">
       <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Edition Number</label>
       <input type="number" id="editEdition" min="1" style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;">
     </div>
-    <div style="margin-bottom:20px;">
+    <div style="margin-bottom:16px;">
       <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Edition Date</label>
       <input type="text" id="editDate" placeholder="February 16, 2026" style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">From the Editor <span style="color:#404040;font-size:10px;text-transform:none;letter-spacing:0;">(optional — appears verbatim above Signal)</span></label>
+      <textarea id="editEditorNote" rows="4" placeholder="2-3 sentences in your voice. A human moment connecting this week's news to something real." style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'Inter',sans-serif;font-size:14px;outline:none;resize:vertical;line-height:1.6;"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="saveEdit()">Save</button>
       <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addPickModal" onclick="closeAddPick(event)">
+  <div class="modal" style="max-width:520px;">
+    <h3 style="color:#f59e0b;">Add Editor Pick</h3>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">URL *</label>
+      <input type="url" id="pickUrl" placeholder="https://..." style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Title <span style="color:#404040;font-size:10px;text-transform:none;letter-spacing:0;">(optional)</span></label>
+      <input type="text" id="pickTitle" placeholder="Article title" style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'Inter',sans-serif;font-size:14px;outline:none;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Your note <span style="color:#404040;font-size:10px;text-transform:none;letter-spacing:0;">(why interesting, what angle)</span></label>
+      <textarea id="pickNote" rows="3" placeholder="Why this article matters, what angle to take..." style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'Inter',sans-serif;font-size:14px;outline:none;resize:vertical;"></textarea>
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;color:#525252;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Priority</label>
+      <select id="pickPriority" style="width:100%;padding:10px 14px;border:1px solid #292929;border-radius:6px;background:#000;color:#fafafa;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+        <option value="normal">Normal</option>
+        <option value="high">High (prefer for Signal/top Radar)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitAddPick()">Add Pick</button>
+      <button class="btn btn-outline" onclick="closeAddPick()">Cancel</button>
     </div>
   </div>
 </div>
@@ -965,7 +1015,7 @@
       var actions = '<a href="/newsletter/' + encodeURIComponent(r.id) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">View</a>'
         + ' &middot; <a href="#" onclick="viewLinkedIn(\'' + esc(r.id) + '\');return false;" style="color:#60a5fa;text-decoration:none;">LinkedIn</a>';
       if (isPending) {
-        actions += ' &middot; <a href="#" onclick="editPending(\'' + esc(r.id) + '\');return false;" style="color:#34d399;text-decoration:none;">Edit</a>'
+        actions += ' &middot; <a href="#" onclick="editPending(\'' + esc(r.id) + '\', ' + JSON.stringify(r.editor_note || '') + ');return false;" style="color:#34d399;text-decoration:none;">Edit</a>'
           + ' &middot; <a href="#" onclick="deletePending(\'' + esc(r.id) + '\');return false;" style="color:#f87171;text-decoration:none;">Delete</a>';
       } else {
         actions += ' &middot; <a href="#" onclick="requeueNewsletter(\'' + esc(r.id) + '\');return false;" style="color:#a78bfa;text-decoration:none;">Requeue</a>';
@@ -1177,6 +1227,83 @@
     $('tableHistory').innerHTML = html || '<tr><td colspan="6">No history entries</td></tr>';
   }
 
+  async function loadEditorPicks() {
+    var data = await fetchJson('/api/dashboard/editor-picks?all=true');
+    if (!data) return;
+    var picks = data.picks || [];
+    var html = '';
+    picks.forEach(function(p) {
+      var shortUrl = p.url.replace(/^https?:\/\//, '').substring(0, 50);
+      var used = p.used ? ' style="opacity:0.4;"' : '';
+      html += '<tr' + used + '>'
+        + '<td><a href="' + esc(p.url) + '" target="_blank" style="color:#f59e0b;text-decoration:none;">' + esc(shortUrl) + '</a></td>'
+        + '<td>' + esc(p.title || '') + '</td>'
+        + '<td style="font-style:italic;color:#737373;">' + esc(p.editor_note || '') + '</td>'
+        + '<td><span style="color:' + (p.priority === 'high' ? '#f59e0b' : '#525252') + ';">' + esc(p.priority) + '</span></td>'
+        + '<td>' + esc((p.added_at || '').substring(0, 10)) + '</td>'
+        + '<td><a href="#" onclick="deleteEditorPick(' + p.id + ');return false;" style="color:#f87171;text-decoration:none;">Delete</a></td>'
+        + '</tr>';
+    });
+    $('tableEditorPicks').innerHTML = html || '<tr><td colspan="6">No picks yet — add URLs you want in the next newsletter.</td></tr>';
+  }
+
+  window.openAddPick = function() {
+    $('pickUrl').value = '';
+    $('pickTitle').value = '';
+    $('pickNote').value = '';
+    $('pickPriority').value = 'normal';
+    $('addPickModal').classList.add('show');
+    $('pickUrl').focus();
+  };
+
+  window.closeAddPick = function(e) {
+    if (e && e.target !== $('addPickModal')) return;
+    $('addPickModal').classList.remove('show');
+  };
+
+  window.submitAddPick = async function() {
+    var url = $('pickUrl').value.trim();
+    if (!url) { showToast('Enter a URL'); return; }
+    try {
+      var res = await fetch('/api/dashboard/editor-picks', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          url: url,
+          title: $('pickTitle').value.trim(),
+          editor_note: $('pickNote').value.trim(),
+          priority: $('pickPriority').value
+        })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showToast('Pick added');
+        $('addPickModal').classList.remove('show');
+        loadEditorPicks();
+      } else {
+        showToast(data.message || 'Failed to add pick');
+      }
+    } catch(e) {
+      showToast('Error adding pick');
+    }
+  };
+
+  window.deleteEditorPick = async function(id) {
+    if (!confirm('Delete this editor pick?')) return;
+    try {
+      var res = await fetch('/api/dashboard/editor-picks/' + id, {method: 'DELETE'});
+      var data = await res.json();
+      if (res.ok) {
+        showToast('Pick deleted');
+        loadEditorPicks();
+      } else {
+        showToast(data.message || 'Failed to delete');
+      }
+    } catch(e) {
+      showToast('Error deleting pick');
+    }
+  };
+
   window.loadAll = function() {
     loadSubscribers();
     loadArticles();
@@ -1185,6 +1312,7 @@
     loadPending();
     loadPipelineRuns();
     loadHistory();
+    loadEditorPicks();
     loadSubscriberList();
     $('lastRefresh').textContent = new Date().toLocaleTimeString();
   };
@@ -1221,10 +1349,11 @@
     }
   };
 
-  window.editPending = function(id) {
+  window.editPending = function(id, editorNote) {
     $('editId').value = id;
     $('editEdition').value = '';
     $('editDate').value = '';
+    $('editEditorNote').value = editorNote || '';
     $('editModal').classList.add('show');
     $('editEdition').focus();
   };
@@ -1233,13 +1362,14 @@
     var id = $('editId').value;
     var num = parseInt($('editEdition').value, 10);
     var date = $('editDate').value.trim();
+    var editorNote = $('editEditorNote').value.trim();
     if (!num || num < 1) { showToast('Enter a valid edition number'); return; }
     if (!date) { showToast('Enter an edition date'); return; }
     try {
       var res = await fetch('/api/dashboard/pending-newsletters/' + encodeURIComponent(id), {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({edition_number: num, edition_date: date})
+        body: JSON.stringify({edition_number: num, edition_date: date, editor_note: editorNote})
       });
       var data = await res.json();
       if (res.ok) {

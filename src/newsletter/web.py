@@ -14,13 +14,16 @@ from pydantic import BaseModel
 
 from .config import settings
 from .db import (
+    add_editor_pick,
     add_subscriber,
+    delete_editor_pick,
     delete_history_entry,
     delete_pending_newsletter,
     get_api_cost_breakdown,
     get_api_usage_stats,
     get_article_stats,
     get_db_diagnostic,
+    get_editor_picks,
     get_email_sends,
     get_email_stats,
     get_failed_emails,
@@ -39,6 +42,7 @@ from .db import (
     requeue_newsletter,
     init_db,
     remove_subscriber,
+    update_newsletter_editor_note,
     update_newsletter_html,
     update_retry_status,
     update_subscriber_email,
@@ -496,6 +500,7 @@ async def api_requeue_newsletter(
 class EditNewsletterRequest(BaseModel):
     edition_number: int
     edition_date: str
+    editor_note: str = ""
 
 
 @app.patch("/api/dashboard/pending-newsletters/{newsletter_id}")
@@ -514,10 +519,13 @@ async def api_edit_pending_newsletter(
         data = json.loads(newsletter["json_data"])
     except (json.JSONDecodeError, TypeError):
         return JSONResponse(status_code=400, content={"ok": False, "message": "Newsletter has no valid JSON data"})
-    new_html = render_html(data, req.edition_number, req.edition_date)
+    new_html = render_html(data, req.edition_number, req.edition_date, editor_note=req.editor_note)
     updated = update_newsletter_html(settings.database_path, newsletter_id, new_html)
     if not updated:
         return JSONResponse(status_code=500, content={"ok": False, "message": "Failed to update newsletter"})
+    # Save the editor note to the DB so it persists for future re-renders
+    if req.editor_note is not None:
+        update_newsletter_editor_note(settings.database_path, newsletter_id, req.editor_note)
     return {"ok": True, "message": f"Updated to Edition #{req.edition_number}"}
 
 
@@ -580,3 +588,65 @@ async def api_db_diagnostic(dashboard_token: str | None = Cookie(default=None)):
     if err:
         return err
     return get_db_diagnostic(settings.database_path)
+
+
+# ---------------------------------------------------------------------------
+# Editor picks endpoints
+# ---------------------------------------------------------------------------
+
+class EditorPickRequest(BaseModel):
+    url: str
+    title: str = ""
+    editor_note: str = ""
+    priority: str = "normal"
+
+
+@app.get("/api/dashboard/editor-picks")
+async def api_get_editor_picks(
+    dashboard_token: str | None = Cookie(default=None),
+    all: bool = False,
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    picks = get_editor_picks(settings.database_path, unused_only=not all)
+    return {"picks": picks}
+
+
+@app.post("/api/dashboard/editor-picks")
+async def api_add_editor_pick(
+    req: EditorPickRequest,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    url = req.url.strip()
+    if not url.startswith("http"):
+        return JSONResponse(status_code=400, content={"ok": False, "message": "Invalid URL"})
+    if req.priority not in ("normal", "high"):
+        return JSONResponse(status_code=400, content={"ok": False, "message": "Priority must be 'normal' or 'high'"})
+    added = add_editor_pick(
+        settings.database_path,
+        url=url,
+        title=req.title.strip(),
+        editor_note=req.editor_note.strip(),
+        priority=req.priority,
+    )
+    if added:
+        return {"ok": True, "message": "Pick added"}
+    return JSONResponse(status_code=409, content={"ok": False, "message": "URL already in picks"})
+
+
+@app.delete("/api/dashboard/editor-picks/{pick_id}")
+async def api_delete_editor_pick(
+    pick_id: int,
+    dashboard_token: str | None = Cookie(default=None),
+):
+    err = _require_auth(dashboard_token)
+    if err:
+        return err
+    deleted = delete_editor_pick(settings.database_path, pick_id)
+    if not deleted:
+        return JSONResponse(status_code=404, content={"ok": False, "message": "Pick not found"})
+    return {"ok": True}

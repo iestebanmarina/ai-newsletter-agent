@@ -54,6 +54,12 @@ class Settings(BaseSettings):
         "https://www.anthropic.com/feed",
         "https://deepmind.google/blog/rss.xml",
         "https://ai.meta.com/blog/rss/",
+        # Engineering blogs: how companies actually deploy AI, not press releases
+        "https://netflixtechblog.com/feed",
+        "https://engineering.atspotify.com/feed/",
+        "https://blog.langchain.dev/rss/",
+        # Research / policy: different angle from tech press
+        "https://hai.stanford.edu/news/rss.xml",
     ]
 
     # Expert RSS feeds (blogs, substacks, podcasts)
@@ -64,6 +70,10 @@ class Settings(BaseSettings):
         "https://simonwillison.net/atom/everything/",
         "https://lilianweng.github.io/index.xml",
         "https://lexfridman.com/feed/podcast/",
+        # Practitioner Substacks: strategic + practitioner angle
+        "https://www.latent.space/feed",
+        "https://www.exponentialview.co/feed",
+        "https://newsletter.pragmaticengineer.com/feed",
     ]
 
     # Google News queries

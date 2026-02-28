@@ -55,3 +55,4 @@ class Newsletter(BaseModel):
     subject_line: str = ""
     html_content: str = ""
     json_data: str = ""
+    editor_note: str = ""

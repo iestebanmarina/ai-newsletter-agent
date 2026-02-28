@@ -424,6 +424,33 @@
     margin-bottom: 6px;
   }
 
+  /* From the Editor */
+  .editor-note {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 8px 8px 0;
+    padding: 20px 24px;
+    margin-bottom: 48px;
+  }
+
+  .editor-note-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f59e0b;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+
+  .editor-note p {
+    font-size: 15px;
+    color: #d4d4d4;
+    font-style: italic;
+    line-height: 1.7;
+  }
+
   /* Footer */
   .footer {
     text-align: center;
@@ -461,6 +488,14 @@
     <div class="logo">Knowledge in Chain</div>
     <div class="date">Edition #{{ edition_number }} &middot; {{ date }}</div>
   </div>
+
+  <!-- FROM THE EDITOR (only shown when editor_note is set) -->
+  {% if editor_note %}
+  <div class="editor-note">
+    <div class="editor-note-label">// From the Editor</div>
+    <p>{{ editor_note }}</p>
+  </div>
+  {% endif %}
 
   <!-- SIGNAL -->
   <div class="section">

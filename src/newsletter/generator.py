@@ -9,6 +9,7 @@ from jinja2 import Environment, FileSystemLoader
 from .db import (
     build_history_context,
     get_history,
+    get_recent_radar_topics,
     log_api_usage,
     save_to_history,
 )
@@ -101,7 +102,8 @@ You will also receive a HISTORY of all previous editions. You MUST:
 - **NEVER repeat** a USE THIS prompt that solves the same problem. Each week must teach a different skill.
 - **NEVER repeat** a BEFORE→AFTER task. Find a new workflow to transform.
 - **NEVER reuse** a SIGNAL article URL that appeared as signal in a previous edition.
-- For RADAR: avoid URLs already covered in previous editions when possible.
+- **NEVER use SIGNAL to cover a topic listed in RECENT RADAR TOPICS** (last 2 editions). The Signal must cover something meaningfully different from last week's dominant story.
+- For RADAR: aim for at least 5 topics NOT covered in the last 2 editions' radar topics. Do not let one story dominate when it dominated last week.
 - If a concept was covered before but there's a SIGNIFICANT new development that justifies revisiting it, you MAY reference it briefly while focusing on what's NEW. Explicitly note: "We covered [concept] in edition N — here's what changed."
 
 ### Challenge progression
@@ -123,6 +125,14 @@ When relevant, reference past challenges: "If you did edition N's challenge, you
 - DO NOT mention specific model version numbers or pricing unless directly relevant.
 - Each edition must feel FRESH. A returning reader should never think "I've seen this before".
 - NEVER use em-dashes (—). Use periods, commas, or semicolons instead. Restructure sentences if needed. Em-dashes feel robotic and formulaic. Write like a human: short sentences, natural punctuation.
+
+## EDITOR CONTEXT (when provided)
+If an EDITOR CONTEXT section appears in the user message, follow it exactly:
+- The **Translate topic and angle** in the editor context OVERRIDE your own choice. Use the specified concept and framing.
+- The **Editorial angle for Signal** is a strong preference. Follow it unless no article in the week's collection supports it.
+- **Voice guidelines** in the editor context OVERRIDE your default style. Apply them to every section.
+- **Manual Picks** listed in the editor context are high-priority articles. Prefer them for Signal and top Radar slots.
+- The editor note (if present under "Editor's Note for This Edition") is already written by the human editor. Do NOT generate a new one; it will be injected separately.
 
 Return your response as a JSON object with this exact structure:
 {
@@ -171,8 +181,11 @@ Return your response as a JSON object with this exact structure:
     "level_3_title": "...",
     "level_3": "...",
     "what_youll_learn": "..."
-  }
-}"""
+  },
+  "radar_topics": ["topic1", "topic2", "..."]
+}
+
+The `radar_topics` field is REQUIRED. It must contain 8-12 short topic strings (2-5 words each) summarizing the distinct themes covered in Signal + Radar this edition. These are used to prevent topic repetition in future editions. Examples: "multi-agent systems", "open source LLMs", "AI regulation EU", "reasoning models", "enterprise AI deployment"."""
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -215,8 +228,12 @@ def generate_newsletter(
     client = anthropic.Anthropic(api_key=api_key)
     data = _generate_content(client, model, articles_for_prompt, history_context, week_number, edition_date)
 
+    # Extract editor note from editor_context.md (if present)
+    editor_context = _load_editor_context()
+    editor_note = _extract_editor_note(editor_context)
+
     # Render HTML via Jinja2 template
-    html = render_html(data, week_number, edition_date)
+    html = render_html(data, week_number, edition_date, editor_note=editor_note)
 
     # Save to history for cross-edition memory (skip in preview/dry-run)
     if save_history and effective_db_path:
@@ -230,6 +247,7 @@ def generate_newsletter(
         subject_line=data.get("subject_line", "Knowledge in Chain"),
         html_content=html,
         json_data=json_data,
+        editor_note=editor_note,
     )
 
     logger.info(f"Generated newsletter edition #{week_number} with subject: {newsletter.subject_line}")
@@ -254,6 +272,57 @@ def _prepare_articles(articles: list) -> list[dict]:
     return result
 
 
+def _load_editor_context() -> str:
+    """Load editor_context.md from the project root if it exists."""
+    # Try project root (two levels up from this file: src/newsletter/ -> src/ -> root)
+    candidates = [
+        Path(__file__).parent.parent.parent / "editor_context.md",
+        Path("editor_context.md"),
+    ]
+    for path in candidates:
+        if path.exists():
+            try:
+                content = path.read_text(encoding="utf-8").strip()
+                if content:
+                    logger.info(f"Loaded editor_context.md from {path}")
+                    return content
+            except Exception:
+                logger.debug(f"Failed to read editor_context.md at {path}", exc_info=True)
+    return ""
+
+
+def _extract_editor_note(context: str) -> str:
+    """Extract the editor note from editor_context.md content.
+
+    Looks for the "Editor's Note for This Edition" section and extracts the
+    text after it (stopping at the next ## section or a code block example).
+    """
+    if not context:
+        return ""
+    lines = context.splitlines()
+    in_section = False
+    note_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("## Editor's Note for This Edition"):
+            in_section = True
+            continue
+        if in_section:
+            # Stop at the next section
+            if stripped.startswith("## "):
+                break
+            # Skip comment lines and example blocks
+            if stripped.startswith("[") or stripped.startswith("Example:") or stripped.startswith("```"):
+                break
+            note_lines.append(line)
+
+    note = "\n".join(note_lines).strip()
+    # Remove bracketed placeholder text like [Write 2-3 sentences...]
+    import re
+    note = re.sub(r"^\[.*?\]$", "", note, flags=re.MULTILINE).strip()
+    return note
+
+
 def _generate_content(
     client: anthropic.Anthropic,
     model: str,
@@ -272,13 +341,25 @@ def _generate_content(
         f"Today's date: {edition_date}",
         f"This is EDITION #{week_number} of the newsletter.",
         "",
+    ]
+
+    # Inject editor context if available
+    editor_context = _load_editor_context()
+    if editor_context:
+        user_message_parts += [
+            "=== EDITOR CONTEXT (follow these instructions precisely) ===",
+            editor_context,
+            "",
+        ]
+
+    user_message_parts += [
         "=== HISTORY OF PREVIOUS EDITIONS ===",
         history_context,
         "",
         "=== THIS WEEK'S CURATED ARTICLES ===",
         articles_text,
         "",
-        "Generate the newsletter following the exact JSON structure specified. Remember: NO repetition of past concepts, prompts, or tasks. Build on previous challenges progressively.",
+        "Generate the newsletter following the exact JSON structure specified. Remember: NO repetition of past concepts, prompts, or tasks. Build on previous challenges progressively. Include radar_topics array.",
     ]
 
     try:
@@ -330,7 +411,7 @@ def _generate_content(
         raise
 
 
-def render_html(data: dict, week_number: int, edition_date: str = "") -> str:
+def render_html(data: dict, week_number: int, edition_date: str = "", editor_note: str = "") -> str:
     """Render the newsletter HTML using the Jinja2 template."""
     env = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
@@ -352,6 +433,7 @@ def render_html(data: dict, week_number: int, edition_date: str = "") -> str:
         subject_line=data.get("subject_line", "Knowledge in Chain"),
         edition_number=week_number,
         date=today,
+        editor_note=editor_note,
         signal=data.get("signal", {}),
         signal_source_short=source_short,
         radar=data.get("radar", []),

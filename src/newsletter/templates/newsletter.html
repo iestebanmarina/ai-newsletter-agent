@@ -259,7 +259,7 @@
   }
 
   .example-box::before {
-    content: 'Example output';
+    content: '{% if is_spanish %}Ejemplo de respuesta{% else %}Example output{% endif %}';
     display: block;
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
@@ -492,7 +492,7 @@
   <!-- FROM THE EDITOR (only shown when editor_note is set) -->
   {% if editor_note %}
   <div class="editor-note">
-    <div class="editor-note-label">// From the Editor</div>
+    <div class="editor-note-label">{% if is_spanish %}// Del editor{% else %}// From the Editor{% endif %}</div>
     <p>{{ editor_note }}</p>
   </div>
   {% endif %}
@@ -500,38 +500,38 @@
   <!-- SIGNAL -->
   <div class="section">
     <div class="section-label">// Signal</div>
-    <p class="section-desc">The single most important AI story this week, explained simply.</p>
+    <p class="section-desc">{% if is_spanish %}La historia de IA más importante de la semana, explicada sin tecnicismos.{% else %}The single most important AI story this week, explained simply.{% endif %}</p>
     <h2 class="signal-headline">{{ signal.headline }}</h2>
     <div class="signal-block">
-      <strong>What happened</strong>
+      <strong>{% if is_spanish %}Qué ocurrió{% else %}What happened{% endif %}</strong>
       <p>{{ signal.what_happened }}</p>
     </div>
     <div class="signal-block">
-      <strong>Why it matters</strong>
+      <strong>{% if is_spanish %}Por qué importa{% else %}Why it matters{% endif %}</strong>
       <p>{{ signal.why_it_matters }}</p>
     </div>
     <div class="signal-block">
-      <strong>What changes for you</strong>
+      <strong>{% if is_spanish %}Qué cambia para ti{% else %}What changes for you{% endif %}</strong>
       <p>{{ signal.what_changes }}</p>
     </div>
-    <div class="source-link">Source: <a href="{{ signal.source_url }}">{{ signal_source_short }}</a></div>
+    <div class="source-link">{% if is_spanish %}Fuente:{% else %}Source:{% endif %} <a href="{{ signal.source_url }}">{{ signal_source_short }}</a></div>
   </div>
 
   <!-- TRANSLATE -->
   <div class="section">
     <div class="section-label">// Translate</div>
-    <p class="section-desc">One technical concept from the news, explained with an everyday analogy.</p>
+    <p class="section-desc">{% if is_spanish %}Un concepto técnico de la actualidad, explicado con una analogía cotidiana.{% else %}One technical concept from the news, explained with an everyday analogy.{% endif %}</p>
     <div class="concept-name">{{ translate.concept }}</div>
     <div class="translate-block">
-      <strong>The analogy</strong>
+      <strong>{% if is_spanish %}La analogía{% else %}The analogy{% endif %}</strong>
       <p>{{ translate.analogy }}</p>
     </div>
     <div class="translate-block">
-      <strong>In practice</strong>
+      <strong>{% if is_spanish %}En la práctica{% else %}In practice{% endif %}</strong>
       <p>{{ translate.in_practice }}</p>
     </div>
     <div class="translate-block">
-      <strong>Why now</strong>
+      <strong>{% if is_spanish %}Por qué ahora{% else %}Why now{% endif %}</strong>
       <p>{{ translate.why_now }}</p>
     </div>
   </div>
@@ -539,7 +539,7 @@
   <!-- RADAR -->
   <div class="section">
     <div class="section-label">// Radar</div>
-    <p class="section-desc">Quick takes on the stories shaping the AI landscape right now.</p>
+    <p class="section-desc">{% if is_spanish %}Lo que está moldeando el panorama de la IA ahora mismo.{% else %}Quick takes on the stories shaping the AI landscape right now.{% endif %}</p>
     {% for item in radar %}
     <div class="radar-item">
       <div class="radar-num">{{ "%02d"|format(loop.index) }}</div>
@@ -553,13 +553,13 @@
 
   <!-- SEPARATOR -->
   <div class="your-turn">
-    <span>// Now it's your turn</span>
+    <span>{% if is_spanish %}// Ahora es tu turno{% else %}// Now it's your turn{% endif %}</span>
   </div>
 
   <!-- PROMPT LAB (Use This) -->
   <div class="section">
     <div class="section-label">// Prompt Lab</div>
-    <p class="section-desc">A ready-to-use prompt you can copy, paste, and adapt to your work.</p>
+    <p class="section-desc">{% if is_spanish %}Un prompt listo para copiar, pegar y adaptar a tu trabajo.{% else %}A ready-to-use prompt you can copy, paste, and adapt to your work.{% endif %}</p>
     <p class="prompt-problem">{{ use_this.problem }}</p>
     <div class="prompt-box">{{ use_this.prompt }}</div>
     <div class="example-box">{{ use_this.example_output }}</div>
@@ -570,25 +570,25 @@
   <!-- WORKFLOW SHIFT (Before → After) -->
   <div class="section">
     <div class="section-label">// Workflow Shift</div>
-    <p class="section-desc">A common task reimagined with AI. See the difference side by side.</p>
+    <p class="section-desc">{% if is_spanish %}Una tarea cotidiana reimaginada con IA. Compara el antes y el después.{% else %}A common task reimagined with AI. See the difference side by side.{% endif %}</p>
     <h3 class="ba-task">{{ before_after.task }}</h3>
     <div class="ba-grid">
       <div class="ba-col before">
-        <h4>Before</h4>
+        <h4>{% if is_spanish %}Antes{% else %}Before{% endif %}</h4>
         <p>{{ before_after.before }}</p>
       </div>
       <div class="ba-col after">
-        <h4>After</h4>
+        <h4>{% if is_spanish %}Después{% else %}After{% endif %}</h4>
         <p>{{ before_after.after }}</p>
       </div>
     </div>
-    <div class="ba-insight"><strong>Key insight:</strong> {{ before_after.key_insight }}</div>
+    <div class="ba-insight"><strong>{% if is_spanish %}La clave:{% else %}Key insight:{% endif %}</strong> {{ before_after.key_insight }}</div>
   </div>
 
   <!-- WEEKLY CHALLENGE (Challenge) -->
   <div class="section">
     <div class="section-label">// Weekly Challenge</div>
-    <p class="section-desc">A hands-on exercise at three levels. Pick yours and start.</p>
+    <p class="section-desc">{% if is_spanish %}Un ejercicio práctico en tres niveles. Elige el tuyo y empieza.{% else %}A hands-on exercise at three levels. Pick yours and start.{% endif %}</p>
     <div class="challenge-theme">{{ challenge.theme }}</div>
     <div class="challenge-level">
       <div class="challenge-level-header">
@@ -612,7 +612,7 @@
       <p>{{ challenge.level_3 }}</p>
     </div>
     <div class="challenge-learn">
-      <strong>What you'll learn</strong>
+      <strong>{% if is_spanish %}Lo que aprenderás{% else %}What you'll learn{% endif %}</strong>
       <p>{{ challenge.what_youll_learn }}</p>
     </div>
   </div>

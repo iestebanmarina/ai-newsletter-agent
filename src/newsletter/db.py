@@ -14,10 +14,10 @@ def get_history(db_path: str) -> list[dict]:
     conn = get_connection(db_path)
     try:
         rows = conn.execute(
-            """SELECT edition_date, subject_line, signal_topic, signal_url,
+            """SELECT id, edition_date, subject_line, signal_topic, signal_url,
                       translate_concept, use_this_topic, use_this_difficulty,
                       before_after_task, challenge_topic, challenge_difficulty,
-                      challenge_week_number, radar_urls, radar_topics
+                      challenge_week_number, radar_urls, radar_topics, full_json
                FROM newsletter_history ORDER BY id ASC"""
         ).fetchall()
     except Exception:
@@ -106,6 +106,21 @@ def build_history_context(history: list[dict]) -> str:
             topics_list = []
         if topics_list:
             lines.append(f"  Radar topics: {', '.join(topics_list)}")
+        # For the last 3 editions, also include actual radar headlines from full_json
+        if i > len(history) - 3:
+            full_json_raw = h.get("full_json", "")
+            if full_json_raw:
+                try:
+                    data = json.loads(full_json_raw)
+                    radar_items = data.get("radar", [])
+                    if radar_items:
+                        lines.append("  Radar stories covered (do NOT repeat these):")
+                        for item in radar_items:
+                            headline = item.get("takeaway") or item.get("summary", "")
+                            if headline:
+                                lines.append(f"    - {headline[:120]}")
+                except (json.JSONDecodeError, TypeError):
+                    pass
         lines.append("")
 
     concepts_covered = [h["translate_concept"] for h in history if h["translate_concept"]]
@@ -143,6 +158,139 @@ def get_recent_radar_topics(history: list[dict], editions: int = 2) -> list[str]
             tlist = []
         topics.extend(tlist)
     return list(set(topics))
+
+
+def get_used_article_urls(db_path: str, editions: int = 3) -> set[str]:
+    """Get all article URLs from the last N sent newsletters for hard-exclusion.
+
+    Parses signal_url, radar_urls, and full_json to capture every article URL
+    that appeared in recent editions.
+    """
+    import logging
+    _logger = logging.getLogger(__name__)
+
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT signal_url, radar_urls, full_json FROM newsletter_history ORDER BY id DESC LIMIT ?",
+            (editions,),
+        ).fetchall()
+    except Exception:
+        return set()
+    finally:
+        conn.close()
+
+    urls: set[str] = set()
+    for row in rows:
+        if row["signal_url"]:
+            urls.add(row["signal_url"])
+        try:
+            for u in json.loads(row["radar_urls"] or "[]"):
+                if u:
+                    urls.add(u)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        try:
+            data = json.loads(row["full_json"] or "{}")
+            signal_url = data.get("signal", {}).get("source_url", "")
+            if signal_url:
+                urls.add(signal_url)
+            for item in data.get("radar", []):
+                u = item.get("url", "")
+                if u:
+                    urls.add(u)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if urls:
+        _logger.info(f"Hard-exclude pool: {len(urls)} URLs from last {editions} sent newsletters")
+    return urls
+
+
+def backfill_radar_topics(db_path: str) -> int:
+    """Backfill radar_topics from full_json for history entries with empty radar_topics.
+
+    Runs idempotently at startup. Extracts topic strings from signal headline,
+    translate concept, and radar takeaways so the decay system has real data.
+    Returns count of rows updated.
+    """
+    import logging
+    _logger = logging.getLogger(__name__)
+
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """SELECT id, full_json FROM newsletter_history
+               WHERE (radar_topics IS NULL OR radar_topics = '[]')
+               AND full_json IS NOT NULL AND full_json != ''"""
+        ).fetchall()
+    except Exception:
+        conn.close()
+        return 0
+
+    if not rows:
+        conn.close()
+        return 0
+
+    updated = 0
+    for row in rows:
+        try:
+            data = json.loads(row["full_json"])
+            topics: list[str] = []
+
+            signal_headline = data.get("signal", {}).get("headline", "")
+            if signal_headline:
+                words = signal_headline.split()[:5]
+                topics.append(" ".join(words).lower().rstrip(".,;:!?"))
+
+            translate_concept = data.get("translate", {}).get("concept", "")
+            if translate_concept:
+                topics.append(translate_concept.lower())
+
+            for item in data.get("radar", []):
+                headline = item.get("takeaway", "") or item.get("summary", "")
+                if headline:
+                    words = headline.split()[:5]
+                    topics.append(" ".join(words).lower().rstrip(".,;:!?"))
+
+            seen: set[str] = set()
+            unique_topics: list[str] = []
+            for t in topics:
+                if t and t not in seen:
+                    seen.add(t)
+                    unique_topics.append(t)
+
+            if unique_topics:
+                conn.execute(
+                    "UPDATE newsletter_history SET radar_topics = ? WHERE id = ?",
+                    (json.dumps(unique_topics[:12], ensure_ascii=False), row["id"]),
+                )
+                updated += 1
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            continue
+
+    if updated:
+        conn.commit()
+        _logger.info(f"Backfilled radar_topics for {updated} history entries")
+    conn.close()
+    return updated
+
+
+def mark_articles_sent_by_urls(db_path: str, urls: list[str]) -> int:
+    """Mark articles as sent=1 by URL list. Returns count of rows updated."""
+    if not urls:
+        return 0
+    conn = get_connection(db_path)
+    try:
+        placeholders = ",".join("?" * len(urls))
+        cursor = conn.execute(
+            f"UPDATE articles SET sent = 1 WHERE url IN ({placeholders})",
+            urls,
+        )
+        conn.commit()
+        return cursor.rowcount
+    finally:
+        conn.close()
 
 
 def get_connection(db_path: str) -> sqlite3.Connection:
@@ -301,6 +449,9 @@ def init_db(db_path: str) -> None:
     conn.commit()
     conn.close()
 
+    # Backfill radar_topics for older history entries that predate the feature
+    backfill_radar_topics(db_path)
+
 
 def insert_article(db_path: str, article: Article) -> bool:
     """Insert an article. Returns True if inserted, False if duplicate."""
@@ -356,6 +507,7 @@ def get_articles_for_newsletter(
     min_papers: int = 2,
     min_expert: int = 1,
     recent_topics: list[str] | None = None,
+    excluded_urls: set[str] | None = None,
 ) -> list[Article]:
     """Get curated, unsent articles with diversity-aware selection.
 
@@ -365,7 +517,8 @@ def get_articles_for_newsletter(
     3. Min `min_papers` research papers (HF/arXiv) if available
     4. Min `min_expert` expert voice (Bluesky/expert blogs) if available
     5. Fill remainder by score
-    6. Articles matching recent radar_topics get score * 0.65 decay
+    6. Articles matching recent radar_topics get score * 0.20 decay (80% reduction)
+    7. Articles whose URLs appear in excluded_urls are hard-excluded entirely
     """
     import logging
     _logger = logging.getLogger(__name__)
@@ -394,6 +547,14 @@ def get_articles_for_newsletter(
     if not all_articles:
         return []
 
+    # Hard-exclude articles from recent sent newsletters
+    if excluded_urls:
+        before = len(all_articles)
+        all_articles = [a for a in all_articles if a.url not in excluded_urls]
+        excluded_count = before - len(all_articles)
+        if excluded_count:
+            _logger.info(f"Excluded {excluded_count} articles from last sent newsletters")
+
     # Apply topic score decay for articles matching recent radar topics
     if recent_topics:
         keywords = [t.lower() for t in recent_topics if t]
@@ -402,7 +563,7 @@ def get_articles_for_newsletter(
             text = f"{a.title} {a.summary}".lower()
             if any(kw in text for kw in keywords):
                 effective = a.final_score if a.final_score > 0 else a.relevance_score
-                a.final_score = effective * 0.65
+                a.final_score = effective * 0.20
                 decayed += 1
         if decayed:
             _logger.info(f"Topic decay applied to {decayed} articles matching recent topics")

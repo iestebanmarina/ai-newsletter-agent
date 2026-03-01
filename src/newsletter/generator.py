@@ -45,8 +45,8 @@ Format:
 - **What changes for you**: 1-2 sentences with a concrete takeaway the reader can act on
 - **source_url**: The URL of the article you chose
 
-### 2. // RADAR — 10 stories worth knowing
-Select the 10 most relevant stories from the remaining articles (NOT the one used in SIGNAL). For each story, structure it as:
+### 2. // RADAR — 7 to 10 stories worth knowing
+Select 7 to 10 of the most relevant stories from the remaining articles (NOT the one used in SIGNAL). Choose 7-10 based on what's genuinely fresh and valuable — do not force 10 if fewer are high-quality and distinct from recent editions. For each story, structure it as:
 - **takeaway**: One sentence. What this means for the reader. Start with a verb or implication, not a description of the news. This is the FIRST thing the reader sees — make it practical and direct.
 - **context**: 2-3 sentences. The background: why this is happening, what forces are at play, what trend it connects to.
 - **summary**: 1-2 sentences. Brief factual description of the actual news/event.
@@ -235,8 +235,8 @@ Formato:
 - **what_changes**: 1-2 frases con una conclusión concreta que el lector puede aplicar
 - **source_url**: La URL del artículo elegido
 
-### 2. // RADAR — 10 historias que vale la pena conocer
-Selecciona las 10 historias más relevantes de los artículos restantes (NO la usada en SIGNAL).
+### 2. // RADAR — 7 a 10 historias que vale la pena conocer
+Selecciona entre 7 y 10 de las historias más relevantes de los artículos restantes (NO la usada en SIGNAL). Elige 7-10 según lo que sea genuinamente fresco y valioso — no fuerces 10 si hay menos historias de alta calidad y distintas a ediciones recientes.
 Para cada historia:
 - **takeaway**: Una frase. Lo que esto significa para el lector. Empieza con verbo o implicación, nunca con descripción. "Ahora puedes...", "Esto cambia cómo...", "Si lideras un equipo, espera...".
 - **context**: 2-3 frases. El fondo: por qué ocurre, qué fuerzas lo impulsan, con qué tendencia conecta.
@@ -621,6 +621,8 @@ def render_html(data: dict, week_number: int, edition_date: str = "", editor_not
     if len(source_short) > 50:
         source_short = source_short[:50] + "..."
 
+    is_spanish = settings.newsletter_style == "spanish"
+
     return template.render(
         subject_line=data.get("subject_line", "Knowledge in Chain"),
         edition_number=week_number,
@@ -633,4 +635,5 @@ def render_html(data: dict, week_number: int, edition_date: str = "", editor_not
         use_this=data.get("use_this", {}),
         before_after=data.get("before_after", {}),
         challenge=data.get("challenge", {}),
+        is_spanish=is_spanish,
     )

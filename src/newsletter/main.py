@@ -30,8 +30,10 @@ from .db import (
     get_pending_newsletter,
     get_recent_radar_topics,
     get_uncurated_articles,
+    get_used_article_urls,
     init_db,
     insert_articles,
+    mark_articles_sent_by_urls,
     mark_as_sent,
     mark_editor_picks_used_by_urls,
     mark_newsletter_sent,
@@ -182,6 +184,22 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
                     logger.info(f"Saved edition #{week_number} to history")
                 except Exception:
                     logger.exception("Failed to save to history")
+                # Mark articles as sent so they're excluded from the next edition's pool
+                try:
+                    data = json.loads(pending.get("json_data", "{}"))
+                    article_urls: list[str] = []
+                    signal_url = data.get("signal", {}).get("source_url", "")
+                    if signal_url:
+                        article_urls.append(signal_url)
+                    for item in data.get("radar", []):
+                        u = item.get("url", "")
+                        if u:
+                            article_urls.append(u)
+                    if article_urls:
+                        marked = mark_articles_sent_by_urls(db_path, article_urls)
+                        logger.info(f"Marked {marked} articles as sent")
+                except Exception:
+                    logger.exception("Failed to mark articles as sent")
                 logger.info(f"Newsletter sent: {email_result['sent']} ok, {email_result['failed']} failed")
             else:
                 logger.error("Newsletter sending failed")
@@ -301,12 +319,13 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
             logger.info("No uncurated articles to process")
         update_pipeline_run(db_path, run_id, articles_curated=curated_count)
 
-        # Step 4: Select top articles (with topic decay from recent editions)
+        # Step 4: Select top articles (with topic decay and hard-exclusion from recent editions)
         logger.info("=== Step 4: Selecting top articles ===")
         history = get_history(db_path)
         recent_topics = get_recent_radar_topics(history, editions=2)
         if recent_topics:
             logger.info(f"Topic decay active for {len(recent_topics)} recent topics")
+        excluded_urls = get_used_article_urls(db_path, editions=3)
         top_articles = get_articles_for_newsletter(
             db_path,
             limit=settings.max_articles_per_newsletter,
@@ -314,6 +333,7 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
             min_papers=settings.min_papers_per_newsletter,
             min_expert=settings.min_expert_per_newsletter,
             recent_topics=recent_topics,
+            excluded_urls=excluded_urls,
         )
         logger.info(f"Selected {len(top_articles)} articles for newsletter")
 

@@ -771,6 +771,42 @@ def save_linkedin_post(db_path: str, newsletter_id: str, post_text: str) -> None
     conn.close()
 
 
+def reset_editor_picks_for_pending(db_path: str, newsletter_id: str) -> int:
+    """Reset editor picks used in a pending newsletter back to unused.
+
+    Extracts article URLs from the newsletter's json_data and sets used=0 for
+    any editor picks whose URL matches. Returns the number of picks reset.
+    """
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute(
+            "SELECT json_data FROM pending_newsletters WHERE id = ?",
+            (newsletter_id,),
+        ).fetchone()
+        if not row or not row["json_data"]:
+            return 0
+        data = json.loads(row["json_data"])
+        urls: list[str] = []
+        signal_url = data.get("signal", {}).get("source_url", "")
+        if signal_url:
+            urls.append(signal_url)
+        for item in data.get("radar", []):
+            u = item.get("url", "")
+            if u:
+                urls.append(u)
+        if not urls:
+            return 0
+        placeholders = ",".join("?" * len(urls))
+        cursor = conn.execute(
+            f"UPDATE editor_picks SET used = 0 WHERE url IN ({placeholders}) AND used = 1",
+            urls,
+        )
+        conn.commit()
+        return cursor.rowcount
+    finally:
+        conn.close()
+
+
 def delete_pending_newsletter(db_path: str, newsletter_id: str) -> bool:
     """Delete a pending newsletter. Only deletes if status is 'pending'. Returns True if deleted."""
     conn = get_connection(db_path)
@@ -1485,12 +1521,23 @@ def get_db_diagnostic(db_path: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def add_editor_pick(db_path: str, url: str, title: str = "", editor_note: str = "", priority: str = "normal") -> bool:
-    """Add a manually curated article pick. Returns True if added, False if duplicate URL."""
+    """Add a manually curated article pick.
+
+    Returns True if inserted or re-queued (used URL reset to unused).
+    Returns False if the URL already exists with used=0 (already queued → 409).
+    """
     conn = get_connection(db_path)
     try:
         conn.execute(
-            """INSERT OR IGNORE INTO editor_picks (url, title, editor_note, priority, added_at)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO editor_picks (url, title, editor_note, priority, added_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(url) DO UPDATE SET
+                   used = 0,
+                   title = excluded.title,
+                   editor_note = excluded.editor_note,
+                   priority = excluded.priority,
+                   added_at = excluded.added_at
+               WHERE editor_picks.used = 1""",
             (url, title, editor_note, priority, datetime.utcnow().isoformat()),
         )
         conn.commit()

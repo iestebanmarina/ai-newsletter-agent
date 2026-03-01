@@ -198,6 +198,9 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
                     if article_urls:
                         marked = mark_articles_sent_by_urls(db_path, article_urls)
                         logger.info(f"Marked {marked} articles as sent")
+                    marked_picks = mark_editor_picks_used_by_urls(db_path, article_urls)
+                    if marked_picks:
+                        logger.info(f"Marked {marked_picks} editor pick(s) as used")
                 except Exception:
                     logger.exception("Failed to mark articles as sent")
                 logger.info(f"Newsletter sent: {email_result['sent']} ok, {email_result['failed']} failed")
@@ -336,12 +339,6 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
             excluded_urls=excluded_urls,
         )
         logger.info(f"Selected {len(top_articles)} articles for newsletter")
-
-        # Mark editor picks that made it into the newsletter as used
-        editor_pick_urls = [a.url for a in top_articles if a.source == "Editor Pick"]
-        if editor_pick_urls:
-            marked = mark_editor_picks_used_by_urls(db_path, editor_pick_urls)
-            logger.info(f"Marked {marked} editor pick(s) as used")
 
         if not top_articles:
             logger.warning("No articles available for newsletter, aborting")
@@ -492,6 +489,11 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
             )
             if email_result["sent"] > 0:
                 mark_as_sent(db_path, [a.url for a in top_articles])
+                # Mark editor picks used after successful delivery
+                editor_pick_urls = [a.url for a in top_articles if a.source == "Editor Pick"]
+                if editor_pick_urls:
+                    marked = mark_editor_picks_used_by_urls(db_path, editor_pick_urls)
+                    logger.info(f"Marked {marked} editor pick(s) as used")
                 # Save to archive
                 nl_id = save_pending_newsletter(
                     db_path, run_id, subject, newsletter.html_content,

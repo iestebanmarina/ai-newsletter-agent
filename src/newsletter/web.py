@@ -19,6 +19,7 @@ from .db import (
     delete_editor_pick,
     delete_history_entry,
     delete_pending_newsletter,
+    reset_editor_picks_for_pending,
     get_api_cost_breakdown,
     get_api_usage_stats,
     get_article_stats,
@@ -477,6 +478,7 @@ async def api_delete_pending_newsletter(
     err = _require_auth(dashboard_token)
     if err:
         return err
+    reset_editor_picks_for_pending(settings.database_path, newsletter_id)
     deleted = delete_pending_newsletter(settings.database_path, newsletter_id)
     if not deleted:
         return JSONResponse(status_code=404, content={"ok": False, "message": "Newsletter not found or already sent"})

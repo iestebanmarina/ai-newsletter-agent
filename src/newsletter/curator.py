@@ -6,6 +6,7 @@ import anthropic
 
 from .config import settings
 from .db import log_api_usage
+
 from .models import Article, Category
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,28 @@ For each article, you must return:
 3. **summary**: A concise 2-3 sentence summary capturing the key takeaway. Write in a professional, engaging tone.
 
 Respond with a JSON array of objects, one per article. Each object must have: "url", "category", "relevance", "impact", "actionability", "source_quality", "recency_bonus", "summary"."""
+
+CURATION_SYSTEM_PROMPT_ES = """Eres un curador de noticias de IA para una newsletter semanal en español. Tu trabajo es analizar artículos y proporcionar metadatos estructurados para cada uno.
+
+Para cada artículo debes devolver:
+1. **category**: Una de: opinion, forum, report, future, success_case, uncategorized
+   - opinion: Artículos de opinión, editoriales, análisis, comentarios
+   - forum: Debates comunitarios, hilos de Reddit, posts en foros
+   - report: Artículos de investigación, informes del sector, benchmarks, anuncios técnicos
+   - future: Artículos prospectivos, predicciones, exploraciones teóricas
+   - success_case: Implementaciones reales de IA, casos de estudio, despliegues en producción
+   - uncategorized: No encaja en las otras categorías
+
+2. **Puntuaciones** (todas de 0.0 a 1.0 salvo indicación):
+   - **relevance**: Qué tan relevante e interesante es para una audiencia enfocada en IA (0.0-1.0)
+   - **impact**: Rupturista vs. incremental. Cambios de paradigma=0.9+, significativo=0.7, incremental=0.3-0.5 (0.0-1.0)
+   - **actionability**: ¿Puede el lector actuar sobre esto ahora? Herramientas prácticas=0.8+, teórico=0.2 (0.0-1.0)
+   - **source_quality**: Paper de investigación=0.9+, Blog experto=0.8, Medio de referencia=0.6, Reddit/foro=0.4 (0.0-1.0)
+   - **recency_bonus**: Crédito extra por noticias muy recientes. Hoy=0.2, esta semana=0.1, más antiguo=0.0 (0.0-0.2)
+
+3. **summary**: Un resumen conciso de 2-3 frases que capture el mensaje clave. Escribe en español, con tono directo y concreto. Sin jerga técnica innecesaria. Si el artículo es en inglés, resume en español igualmente.
+
+Responde con un array JSON de objetos, uno por artículo. Cada objeto debe tener: "url", "category", "relevance", "impact", "actionability", "source_quality", "recency_bonus", "summary"."""
 
 BATCH_SIZE = 10
 
@@ -95,10 +118,12 @@ def _curate_batch(
         f"Articles:\n{json.dumps(articles_data, indent=2)}"
     )
 
+    active_prompt = CURATION_SYSTEM_PROMPT_ES if settings.newsletter_style == "spanish" else CURATION_SYSTEM_PROMPT
+
     response = client.messages.create(
         model=model,
         max_tokens=4096,
-        system=CURATION_SYSTEM_PROMPT,
+        system=active_prompt,
         messages=[{"role": "user", "content": user_message}],
     )
 

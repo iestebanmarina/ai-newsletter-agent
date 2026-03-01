@@ -2,6 +2,7 @@ import logging
 
 import anthropic
 
+from .config import settings
 from .db import log_api_usage
 from .models import Article
 
@@ -22,6 +23,25 @@ Rules:
 - Output ONLY the post text, nothing else
 """
 
+LINKEDIN_SYSTEM_PROMPT_ES = """\
+Escribes posts para LinkedIn que promocionan la newsletter semanal de IA "Knowledge in Chain".
+
+Reglas:
+- Máx. ~1300 caracteres / ~200 palabras
+- Empieza con un gancho que capture la atención desde la primera línea. Sin "Esta semana en...".
+- Lista 3-5 puntos clave de la newsletter de esta semana con frases cortas
+- Cierra con una llamada a la acción para suscribirse (incluye la URL proporcionada)
+- Voz de Iñigo: frases cortas, tono invitacional, autoridad desde la experiencia concreta, no desde títulos
+- Sin guiones largos (—). Usa punto, coma o punto y coma
+- Usa emojis con moderación (máx. 1-2)
+- Hashtags al final (exactamente estos 4): #EstrategiaIA #TransformacionIA #BuildInPublic #Innovacion
+- Rota entre estas tres CTAs (elige la que mejor encaje con el contenido de la semana):
+  · "¿Te unes? Suscríbete en: [URL]"
+  · "La newsletter que traduce la IA a decisiones reales: [URL]"
+  · "Cada semana, lo que importa de la IA explicado para quienes toman decisiones: [URL]"
+- Output SOLO el texto del post, nada más
+"""
+
 
 def generate_linkedin_post(
     articles: list[Article],
@@ -40,12 +60,13 @@ def generate_linkedin_post(
     subscribe_url = base_url.rstrip("/") if base_url else "https://knowledgeinchain.com"
 
     client = anthropic.Anthropic(api_key=api_key)
+    active_prompt = LINKEDIN_SYSTEM_PROMPT_ES if settings.newsletter_style == "spanish" else LINKEDIN_SYSTEM_PROMPT
 
     try:
         response = client.messages.create(
             model=model,
             max_tokens=512,
-            system=LINKEDIN_SYSTEM_PROMPT,
+            system=active_prompt,
             messages=[
                 {
                     "role": "user",

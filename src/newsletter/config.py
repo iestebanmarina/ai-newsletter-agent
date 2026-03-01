@@ -35,6 +35,7 @@ class Settings(BaseSettings):
 
     # Pipeline
     max_articles_per_newsletter: int = 20
+    newsletter_style: str = "english"  # "english" | "spanish"
 
     # Review
     review_email: str = ""

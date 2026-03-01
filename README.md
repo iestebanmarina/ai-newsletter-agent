@@ -1,24 +1,59 @@
-# AI Newsletter Agent
+# Knowledge in Chain - AI Newsletter Agent
 
-AI-powered weekly newsletter agent that automatically collects, curates, and delivers AI news. It aggregates content from multiple sources, uses Claude to analyze and categorize articles, and generates a professionally formatted HTML email.
+Automated weekly AI newsletter system. Collects articles from 7+ sources, curates with Claude, generates a structured 6-section newsletter, and sends via Resend. Includes a FastAPI web server with public landing page, admin dashboard, and scheduled pipeline automation.
 
-## How it works
+**Live:** [knowledgeinchain.com](https://knowledgeinchain.com)
+
+## Weekly Flow
 
 ```
-1. COLLECT     → RSS feeds, Google News, Reddit
-2. SCRAPE      → Extract full article content
-3. CURATE      → Claude categorizes, scores, and summarizes
-4. SELECT      → Top 20 articles by relevance
-5. GENERATE    → Claude writes editorial intro + HTML rendering
-6. SEND        → Email delivery via Resend
+Saturday 09:00 UTC ── preview mode
+  │  Collect articles from all sources
+  │  Claude curates, scores, and selects top 20
+  │  Generate 6-section newsletter + LinkedIn post
+  │  Save as pending → send preview to REVIEW_EMAIL
+  │
+  ▼
+Admin reviews in dashboard
+  │  Edit edition number, date, editor's note
+  │  Delete and re-run if needed
+  │
+  ▼
+Monday 09:00 UTC ── send-pending mode
+     Send to all subscribers via Resend
+     Save to newsletter history
 ```
+
+## Newsletter Sections
+
+**Part 1 -- Inform:**
+1. **Signal** -- The single most important AI story this week, explained simply.
+2. **Translate** -- One technical concept from the news, explained with an everyday analogy.
+3. **Radar** -- Quick takes on the stories shaping the AI landscape right now.
+
+**Part 2 -- Practice:**
+4. **Prompt Lab** -- A ready-to-use prompt you can copy, paste, and adapt.
+5. **Workflow Shift** -- A common task reimagined with AI, shown side by side.
+6. **Weekly Challenge** -- A hands-on exercise at three levels.
+
+## Sources
+
+| Source | Collector | Description |
+|--------|-----------|-------------|
+| RSS feeds (11) | `rss.py` | MIT Tech Review, The Verge, Ars Technica, OpenAI, Anthropic, DeepMind, Meta AI, Netflix Tech, Spotify Eng, LangChain, HAI Stanford |
+| Expert RSS (9) | `rss.py` | Latent Space, Exponential View, Pragmatic Engineer, and more |
+| Google News | `google_news.py` | Queries for AI news with URL decoding |
+| Reddit | `reddit.py` | r/artificial, r/MachineLearning, r/LocalLLaMA |
+| HuggingFace | `huggingface.py` | Daily papers feed |
+| Bluesky | `bluesky.py` | Posts from AI experts |
+| Editor Picks | `editor_picks.py` | Manually curated URLs via dashboard |
 
 ## Setup
 
 ### Prerequisites
 
 - Python >= 3.11
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- [uv](https://docs.astral.sh/uv/)
 
 ### Installation
 
@@ -26,74 +61,87 @@ AI-powered weekly newsletter agent that automatically collects, curates, and del
 git clone git@github.com:iestebanmarina/ai-newsletter-agent.git
 cd ai-newsletter-agent
 uv sync
+cp .env.example .env  # fill in your API keys
 ```
 
-### Configuration
-
-Copy the example environment file and fill in your API keys:
-
-```bash
-cp .env.example .env
-```
+### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API key from [console.anthropic.com](https://console.anthropic.com) |
-| `RESEND_API_KEY` | Yes | Email service key from [resend.com](https://resend.com) |
-| `NEWSLETTER_FROM_EMAIL` | Yes | Sender email (must match a verified domain in Resend) |
-| `NEWSLETTER_SUBSCRIBERS` | Yes | Comma-separated list of recipient emails |
-| `REDDIT_CLIENT_ID` | No | Reddit API credentials from [reddit.com/prefs/apps](https://reddit.com/prefs/apps) |
-| `REDDIT_CLIENT_SECRET` | No | Reddit API secret |
-| `CLAUDE_MODEL` | No | Defaults to `claude-sonnet-4-5-20250929` |
-| `MAX_ARTICLES_PER_NEWSLETTER` | No | Defaults to `20` |
-| `SCHEDULE_DAY` | No | Defaults to `monday` |
-| `SCHEDULE_TIME` | No | Defaults to `09:00` |
-| `DATABASE_PATH` | No | Defaults to `newsletter.db` |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key |
+| `RESEND_API_KEY` | Yes | Resend email API key |
+| `NEWSLETTER_FROM_EMAIL` | Yes | Sender email (verified domain in Resend) |
+| `BASE_URL` | Yes | Public URL for unsubscribe links |
+| `REVIEW_EMAIL` | No | Email for preview and dry-run sends |
+| `DASHBOARD_PASSWORD` | No | Dashboard auth (empty = open access) |
+| `REDDIT_CLIENT_ID` | No | Reddit API credentials |
+| `REDDIT_CLIENT_SECRET` | No | Reddit API credentials |
+| `CLAUDE_MODEL` | No | Default: `claude-sonnet-4-5-20250929` |
+| `DATABASE_PATH` | No | Default: `newsletter.db` |
+| `MAX_ARTICLES_PER_NEWSLETTER` | No | Default: `20` |
+| `PREVIEW_SCHEDULE_DAY` | No | Default: `saturday` |
+| `PREVIEW_SCHEDULE_TIME` | No | Default: `09:00` |
+| `SEND_SCHEDULE_DAY` | No | Default: `monday` |
+| `SEND_SCHEDULE_TIME` | No | Default: `09:00` |
 
 ## Usage
 
 ```bash
-# Run the full pipeline once (dry run, no email sent)
+# Web server + scheduler (production mode)
+uv run newsletter --serve
+
+# Generate preview, send to REVIEW_EMAIL
+uv run newsletter --preview
+
+# Send latest pending newsletter to all subscribers
+uv run newsletter --send-pending
+
+# Full pipeline test (saves as pending, sends [TEST] to REVIEW_EMAIL)
 uv run newsletter --dry-run
 
-# Run the full pipeline and send emails
+# Full pipeline: generate and send to all (legacy, bypasses review flow)
 uv run newsletter
-
-# Run on a weekly schedule
-uv run newsletter --schedule
 ```
 
-The `--dry-run` flag generates the newsletter and saves it to `newsletter_preview.html` without sending any emails.
-
-## Default sources
-
-**RSS Feeds:** MIT Technology Review, The Verge AI, Ars Technica, OpenAI Blog, Anthropic Blog, DeepMind Blog, Meta AI Blog
-
-**Google News queries:** "artificial intelligence", "AI implementation enterprise", "machine learning breakthrough"
-
-**Reddit subreddits:** r/artificial, r/MachineLearning, r/LocalLLaMA (requires Reddit API credentials)
-
-## Project structure
+## Project Structure
 
 ```
 src/newsletter/
-├── main.py              # CLI and pipeline orchestration
-├── config.py            # Configuration (loads from .env)
-├── models.py            # Data models (Article, Newsletter, Category)
-├── db.py                # SQLite database operations
-├── curator.py           # Claude-powered article curation
-├── generator.py         # Newsletter generation with Claude editorial
-├── emailer.py           # Email delivery via Resend
+├── main.py              # CLI entry point, pipeline orchestration, scheduler
+├── web.py               # FastAPI server (landing, dashboard, API, health check)
+├── config.py            # Pydantic settings (env vars + .env)
+├── db.py                # SQLite database (articles, subscribers, history, costs)
+├── models.py            # Pydantic models (Article, Newsletter, Category)
+├── curator.py           # Claude-powered article categorization and scoring
+├── generator.py         # Newsletter generation with Claude + Jinja2
+├── emailer.py           # Resend email sending with per-subscriber unsubscribe links
+├── linkedin.py          # LinkedIn post generation via Claude
 ├── collectors/
-│   ├── base.py          # Abstract collector base class
-│   ├── rss.py           # RSS feed collector
-│   ├── google_news.py   # Google News collector
-│   ├── reddit.py        # Reddit collector
-│   └── scraper.py       # Web content scraper
+│   ├── base.py          # Abstract BaseCollector interface
+│   ├── rss.py           # RSS feed parser (feedparser)
+│   ├── google_news.py   # Google News RSS with URL decoding
+│   ├── reddit.py        # Reddit API collector (PRAW)
+│   ├── huggingface.py   # HuggingFace daily papers feed
+│   ├── bluesky.py       # Bluesky social posts from AI experts
+│   ├── editor_picks.py  # Editor-curated URLs from dashboard
+│   └── scraper.py       # HTTP content extraction (BeautifulSoup + lxml)
 └── templates/
-    └── newsletter.html  # Jinja2 email template
+    ├── newsletter.html  # Email template (6-section dark theme)
+    ├── landing.html     # Public landing page with subscription form + archive
+    ├── dashboard.html   # Admin dashboard (stats, pipeline, newsletter management)
+    └── unsubscribe.html # Unsubscribe confirmation page
+scripts/
+├── fix_email_via_api.py     # Update subscriber email via API
+└── retry_failed_emails.py   # Retry failed email deliveries
 ```
+
+## Deployment
+
+- **Platform:** [Railway](https://railway.app) with custom domain via Cloudflare DNS
+- **Docker:** Multi-stage build with uv, runs `uv run newsletter --serve`
+- **Database:** SQLite on Railway Volume mounted at `/data`
+- **Health check:** `GET /health` returns scheduler thread status
 
 ## License
 
-MIT
+[MIT](LICENSE)

@@ -4,7 +4,25 @@
 *.db
 __pycache__/
 *.pyc
-newsletter_preview.html
-setup_schedule.ps1
+*.html
+!src/newsletter/templates/*.html
+
+# Documentation and config
 README.md
+CLAUDE.md
+LICENSE
+docs/
+scripts/
 .claude/
+
+# Generated/personal files
+newsletter_history_backup_*.json
+editor_context.md
+
+# Dev files
+*_temp.py
+*_test.py
+check_*.py
+temp/
+.local/
+cookies.txt

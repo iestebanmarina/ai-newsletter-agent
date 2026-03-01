@@ -17,3 +17,8 @@ check_*.py
 temp/
 .local/
 cookies.txt
+
+# Generated files
+newsletter_history_backup_*.json
+editor_context.md
+docs/

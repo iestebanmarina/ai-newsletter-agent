@@ -87,9 +87,11 @@ async def lifespan(app: FastAPI):
         if migrated:
             logger.info(f"Migrated {migrated} env subscribers to DB")
 
-    if db_existed:
+    if db_existed and not settings.disable_scheduler:
         start_scheduler_thread()
         logger.info("Scheduler started (existing database detected)")
+    elif db_existed and settings.disable_scheduler:
+        logger.info("Scheduler disabled via DISABLE_SCHEDULER=true — not starting")
     else:
         logger.warning(
             f"NEW database created at {db_path} — scheduler NOT started. "

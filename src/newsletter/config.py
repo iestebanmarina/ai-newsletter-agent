@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     review_email: str = ""
 
     # Scheduler
+    disable_scheduler: bool = False
     preview_schedule_day: str = "saturday"
     preview_schedule_time: str = "09:00"
     send_schedule_day: str = "monday"

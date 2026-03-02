@@ -8,7 +8,6 @@ __pycache__/
 !src/newsletter/templates/*.html
 
 # Documentation and config
-README.md
 CLAUDE.md
 LICENSE
 docs/

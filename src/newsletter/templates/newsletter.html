@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark only">
 <meta name="supported-color-schemes" content="dark">
 <title>{{ subject_line }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -477,6 +477,16 @@
     .challenge-learn {
       background-color: #000000 !important;
     }
+    body, p, div, span, td, li {
+      color: #d4d4d4 !important;
+    }
+    h1, h2, h3, h4, strong, .signal-headline, .radar-takeaway,
+    .concept-name, .ba-task, .challenge-theme {
+      color: #fafafa !important;
+    }
+    a, .section-label, .radar-num, .challenge-level-num {
+      color: #f59e0b !important;
+    }
   }
 </style>
 </head>
@@ -522,15 +532,15 @@
     <div class="section-label">// Translate</div>
     <p class="section-desc">{% if is_spanish %}Un concepto técnico de la actualidad, explicado con una analogía cotidiana.{% else %}One technical concept from the news, explained with an everyday analogy.{% endif %}</p>
     <div class="concept-name">{{ translate.concept }}</div>
-    <div class="translate-block">
+    <div class="translate-block" style="background-color:#0a0a0a;">
       <strong>{% if is_spanish %}La analogía{% else %}The analogy{% endif %}</strong>
       <p>{{ translate.analogy }}</p>
     </div>
-    <div class="translate-block">
+    <div class="translate-block" style="background-color:#0a0a0a;">
       <strong>{% if is_spanish %}En la práctica{% else %}In practice{% endif %}</strong>
       <p>{{ translate.in_practice }}</p>
     </div>
-    <div class="translate-block">
+    <div class="translate-block" style="background-color:#0a0a0a;">
       <strong>{% if is_spanish %}Por qué ahora{% else %}Why now{% endif %}</strong>
       <p>{{ translate.why_now }}</p>
     </div>
@@ -561,8 +571,8 @@
     <div class="section-label">// Prompt Lab</div>
     <p class="section-desc">{% if is_spanish %}Un prompt listo para copiar, pegar y adaptar a tu trabajo.{% else %}A ready-to-use prompt you can copy, paste, and adapt to your work.{% endif %}</p>
     <p class="prompt-problem">{{ use_this.problem }}</p>
-    <div class="prompt-box">{{ use_this.prompt }}</div>
-    <div class="example-box">{{ use_this.example_output }}</div>
+    <div class="prompt-box" style="background-color:#0a0a0a;">{{ use_this.prompt }}</div>
+    <div class="example-box" style="background-color:#0a0a0a;">{{ use_this.example_output }}</div>
     <p class="why-works">{{ use_this.why_it_works }}</p>
     <div class="difficulty">{{ use_this.difficulty }}</div>
   </div>
@@ -573,16 +583,16 @@
     <p class="section-desc">{% if is_spanish %}Una tarea cotidiana reimaginada con IA. Compara el antes y el después.{% else %}A common task reimagined with AI. See the difference side by side.{% endif %}</p>
     <h3 class="ba-task">{{ before_after.task }}</h3>
     <div class="ba-grid">
-      <div class="ba-col before">
+      <div class="ba-col before" style="background-color:#0a0a0a;">
         <h4>{% if is_spanish %}Antes{% else %}Before{% endif %}</h4>
         <p>{{ before_after.before }}</p>
       </div>
-      <div class="ba-col after">
+      <div class="ba-col after" style="background-color:#0a0a0a;">
         <h4>{% if is_spanish %}Después{% else %}After{% endif %}</h4>
         <p>{{ before_after.after }}</p>
       </div>
     </div>
-    <div class="ba-insight"><strong>{% if is_spanish %}La clave:{% else %}Key insight:{% endif %}</strong> {{ before_after.key_insight }}</div>
+    <div class="ba-insight" style="background-color:#0a0a0a;"><strong>{% if is_spanish %}La clave:{% else %}Key insight:{% endif %}</strong> {{ before_after.key_insight }}</div>
   </div>
 
   <!-- WEEKLY CHALLENGE (Challenge) -->
@@ -590,28 +600,28 @@
     <div class="section-label">// Weekly Challenge</div>
     <p class="section-desc">{% if is_spanish %}Un ejercicio práctico en tres niveles. Elige el tuyo y empieza.{% else %}A hands-on exercise at three levels. Pick yours and start.{% endif %}</p>
     <div class="challenge-theme">{{ challenge.theme }}</div>
-    <div class="challenge-level">
+    <div class="challenge-level" style="background-color:#0a0a0a;">
       <div class="challenge-level-header">
         <span class="challenge-level-num">1</span>
         <span class="challenge-level-title">{{ challenge.level_1_title }}</span>
       </div>
       <p>{{ challenge.level_1 }}</p>
     </div>
-    <div class="challenge-level">
+    <div class="challenge-level" style="background-color:#0a0a0a;">
       <div class="challenge-level-header">
         <span class="challenge-level-num">2</span>
         <span class="challenge-level-title">{{ challenge.level_2_title }}</span>
       </div>
       <p>{{ challenge.level_2 }}</p>
     </div>
-    <div class="challenge-level">
+    <div class="challenge-level" style="background-color:#0a0a0a;">
       <div class="challenge-level-header">
         <span class="challenge-level-num">3</span>
         <span class="challenge-level-title">{{ challenge.level_3_title }}</span>
       </div>
       <p>{{ challenge.level_3 }}</p>
     </div>
-    <div class="challenge-learn">
+    <div class="challenge-learn" style="background-color:#0a0a0a;">
       <strong>{% if is_spanish %}Lo que aprenderás{% else %}What you'll learn{% endif %}</strong>
       <p>{{ challenge.what_youll_learn }}</p>
     </div>

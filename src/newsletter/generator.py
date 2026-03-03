@@ -63,7 +63,7 @@ Format:
 - **In practice**: What this means the reader can actually do
 - **Why now**: Why this concept is relevant this week (tie to news)
 
-### 3. // USE THIS — Prompt of the week
+### 4. // USE THIS — Prompt of the week
 Create a practical, copy-paste prompt for ChatGPT or Claude that solves a REAL everyday problem. The prompt should be related to this week's theme.
 Format:
 - **Problem**: The real-world problem this solves (1 sentence)
@@ -96,6 +96,21 @@ Format:
 - **level_3_title**: Short label for level 3 (e.g., "Go deep")
 - **level_3**: Advanced version — combines multiple skills, requires more critical thinking, produces a reusable workflow. 10-15 minutes.
 - **what_youll_learn**: The transferable skill this builds (applies to ALL levels)
+
+### 7. // TOOL OF THE WEEK — One AI tool worth trying
+Pick ONE AI tool that's directly relevant to this week's theme, news, or the skill taught in Prompt Lab or Challenge. It should be practical and accessible to non-technical professionals.
+Format:
+- **name**: The tool's name
+- **what_it_does**: What it does in 1-2 sentences. Plain language, no jargon.
+- **best_for**: Who gets the most value from it and why (1 sentence)
+- **how_to_start**: The single first step to try it right now (1 sentence, starts with a verb)
+- **free_plan**: true if a free or freemium option exists; false if paid only
+- **url**: The tool's main website URL
+
+Prioritize tools that: (a) are genuinely useful for knowledge workers, (b) have a low barrier to entry, (c) connect to this week's theme. NEVER recommend the same tool twice across editions.
+
+### 8. // LEARNING SUMMARY — 3 things you'll get this week
+Write exactly 3 short bullets (max 12 words each). Each should complete the phrase "This week:". Cover: (1) a key insight from Signal or Translate, (2) a skill from Prompt Lab or Workflow Shift, (3) a takeaway from Challenge or Tool of the Week. These appear at the top of the email so the reader knows exactly what value to expect before reading.
 
 ## UNIQUENESS & PROGRESSION RULES (CRITICAL)
 You will also receive a HISTORY of all previous editions. You MUST:
@@ -183,10 +198,20 @@ Return your response as a JSON object with this exact structure:
     "level_3": "...",
     "what_youll_learn": "..."
   },
+  "tool_of_week": {
+    "name": "...",
+    "what_it_does": "...",
+    "best_for": "...",
+    "how_to_start": "...",
+    "free_plan": true,
+    "url": "..."
+  },
+  "learning_summary": ["...", "...", "..."],
   "radar_topics": ["topic1", "topic2", "..."]
 }
 
-The `radar_topics` field is REQUIRED. It must contain 8-12 short topic strings (2-5 words each) summarizing the distinct themes covered in Signal + Radar this edition. These are used to prevent topic repetition in future editions. Examples: "multi-agent systems", "open source LLMs", "AI regulation EU", "reasoning models", "enterprise AI deployment"."""
+The `radar_topics` field is REQUIRED. It must contain 8-12 short topic strings (2-5 words each) summarizing the distinct themes covered in Signal + Radar this edition. These are used to prevent topic repetition in future editions. Examples: "multi-agent systems", "open source LLMs", "AI regulation EU", "reasoning models", "enterprise AI deployment".
+The `tool_of_week` and `learning_summary` fields are REQUIRED."""
 
 SYSTEM_PROMPT_ES = """Eres el editor de "Knowledge in Chain", una newsletter semanal de IA escrita en español
 para profesionales de negocio — directivos, emprendedores, líderes y creativos —
@@ -287,6 +312,21 @@ Formato:
 - **level_3**: Versión avanzada. Combina habilidades, más pensamiento crítico, genera un flujo reutilizable. 10-15 minutos.
 - **what_youll_learn**: La habilidad transferible que se construye (aplica a todos los niveles)
 
+### 7. // TOOL OF THE WEEK — Una herramienta de IA que vale la pena probar
+Elige UNA herramienta de IA directamente relevante al tema de la semana, las noticias, o la habilidad enseñada en USE THIS o CHALLENGE. Debe ser práctica y accesible para profesionales no técnicos.
+Formato:
+- **name**: El nombre de la herramienta
+- **what_it_does**: Qué hace en 1-2 frases. Lenguaje llano, sin jerga.
+- **best_for**: Quién obtiene más valor de ella y por qué (1 frase)
+- **how_to_start**: El único primer paso para probarla ahora mismo (1 frase, empieza con un verbo)
+- **free_plan**: true si existe opción gratuita o freemium; false si es solo de pago
+- **url**: URL principal de la herramienta
+
+Prioriza herramientas que: (a) sean genuinamente útiles para profesionales del conocimiento, (b) tengan baja barrera de entrada, (c) conecten con el tema de la semana. NUNCA recomiendes la misma herramienta dos veces en ediciones distintas.
+
+### 8. // LEARNING SUMMARY — 3 cosas que te llevas esta semana
+Escribe exactamente 3 bullets cortos (máx. 12 palabras cada uno). Cada uno debe completar la frase "Esta semana:". Cubre: (1) una idea clave de Signal o Translate, (2) una habilidad de USE THIS o BEFORE→AFTER, (3) un aprendizaje de CHALLENGE o Tool of the Week. Aparecen al inicio del email para que el lector sepa exactamente qué valor le espera.
+
 ## REGLAS DE UNICIDAD Y PROGRESIÓN (CRÍTICO)
 También recibirás un HISTORIAL de ediciones anteriores. DEBES:
 - NUNCA repetir un concepto de TRANSLATE ya cubierto. Elige uno NUEVO cada semana.
@@ -372,10 +412,20 @@ Devuelve tu respuesta como un objeto JSON con esta estructura exacta:
     "level_3": "...",
     "what_youll_learn": "..."
   },
+  "tool_of_week": {
+    "name": "...",
+    "what_it_does": "...",
+    "best_for": "...",
+    "how_to_start": "...",
+    "free_plan": true,
+    "url": "..."
+  },
+  "learning_summary": ["...", "...", "..."],
   "radar_topics": ["tema1", "tema2", "..."]
 }
 
-El campo `radar_topics` es OBLIGATORIO. Debe contener 8-12 cadenas cortas de temas (2-5 palabras cada una) resumiendo los temas distintos cubiertos en Signal + Radar de esta edición. Se usan para prevenir repetición de temas en futuras ediciones."""
+El campo `radar_topics` es OBLIGATORIO. Debe contener 8-12 cadenas cortas de temas (2-5 palabras cada una) resumiendo los temas distintos cubiertos en Signal + Radar de esta edición. Se usan para prevenir repetición de temas en futuras ediciones.
+Los campos `tool_of_week` y `learning_summary` son OBLIGATORIOS."""
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -635,5 +685,7 @@ def render_html(data: dict, week_number: int, edition_date: str = "", editor_not
         use_this=data.get("use_this", {}),
         before_after=data.get("before_after", {}),
         challenge=data.get("challenge", {}),
+        tool_of_week=data.get("tool_of_week", {}),
+        learning_summary=data.get("learning_summary", []),
         is_spanish=is_spanish,
     )

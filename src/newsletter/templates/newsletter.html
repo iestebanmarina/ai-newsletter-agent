@@ -424,6 +424,123 @@
     margin-bottom: 6px;
   }
 
+  /* Learning Summary */
+  .learning-summary {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+  }
+
+  .learning-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f59e0b;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  .learning-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .learning-list li {
+    font-size: 14px;
+    color: #a3a3a3;
+    padding: 4px 0 4px 20px;
+    position: relative;
+    line-height: 1.5;
+  }
+
+  .learning-list li::before {
+    content: '\2192';
+    position: absolute;
+    left: 0;
+    color: #f59e0b;
+  }
+
+  /* Tool of the Week */
+  .tool-card {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 20px 24px;
+  }
+
+  .tool-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .tool-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fafafa;
+  }
+
+  .tool-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .tool-badge.free {
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.08);
+    border: 1px solid rgba(52, 211, 153, 0.25);
+  }
+
+  .tool-badge.paid {
+    color: #737373;
+    background: #1a1a1a;
+    border: 1px solid #292929;
+  }
+
+  .tool-what {
+    font-size: 15px;
+    color: #d4d4d4;
+    margin-bottom: 14px;
+  }
+
+  .tool-row {
+    font-size: 14px;
+    color: #a3a3a3;
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+
+  .tool-row strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #737373;
+    margin-right: 8px;
+  }
+
+  .tool-link {
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #525252;
+  }
+
+  .tool-link a {
+    color: #f59e0b;
+    text-decoration: none;
+  }
+
   /* From the Editor */
   .editor-note {
     background: #0a0a0a;
@@ -498,6 +615,18 @@
     <div class="logo">Knowledge in Chain</div>
     <div class="date">Edition #{{ edition_number }} &middot; {{ date }}</div>
   </div>
+
+  <!-- LEARNING SUMMARY (shown when learning_summary is provided) -->
+  {% if learning_summary %}
+  <div class="learning-summary" style="background-color:#0a0a0a;">
+    <div class="learning-label">{% if is_spanish %}// Esta semana{% else %}// This week{% endif %}</div>
+    <ul class="learning-list">
+      {% for item in learning_summary %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   <!-- FROM THE EDITOR (only shown when editor_note is set) -->
   {% if editor_note %}
@@ -626,6 +755,30 @@
       <p>{{ challenge.what_youll_learn }}</p>
     </div>
   </div>
+
+  <!-- TOOL OF THE WEEK -->
+  {% if tool_of_week and tool_of_week.name %}
+  <div class="section">
+    <div class="section-label">// Tool of the Week</div>
+    <p class="section-desc">{% if is_spanish %}Una herramienta de IA que vale la pena probar esta semana.{% else %}One AI tool worth trying this week.{% endif %}</p>
+    <div class="tool-card" style="background-color:#0a0a0a;">
+      <div class="tool-header">
+        <div class="tool-name">{{ tool_of_week.name }}</div>
+        {% if tool_of_week.free_plan %}
+        <span class="tool-badge free">{% if is_spanish %}Plan gratuito{% else %}Free tier{% endif %}</span>
+        {% else %}
+        <span class="tool-badge paid">{% if is_spanish %}Solo de pago{% else %}Paid only{% endif %}</span>
+        {% endif %}
+      </div>
+      <p class="tool-what">{{ tool_of_week.what_it_does }}</p>
+      <div class="tool-row"><strong>{% if is_spanish %}Ideal para{% else %}Best for{% endif %}</strong> {{ tool_of_week.best_for }}</div>
+      <div class="tool-row"><strong>{% if is_spanish %}Empieza así{% else %}Start here{% endif %}</strong> {{ tool_of_week.how_to_start }}</div>
+      {% if tool_of_week.url %}
+      <div class="tool-link"><a href="{{ tool_of_week.url }}">{{ tool_of_week.url }}</a></div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 
   <div class="footer">
     <p>Knowledge in Chain &bull; Created by I&ntilde;igo Esteban &bull; Powered by Claude</p>

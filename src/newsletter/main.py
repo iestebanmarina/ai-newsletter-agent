@@ -375,7 +375,7 @@ def _run_pipeline_impl(dry_run: bool = False, mode: str = "full") -> None:
         # Step 5b: Generate LinkedIn post
         logger.info("=== Step 5b: Generating LinkedIn post ===")
         linkedin_post = generate_linkedin_post(
-            top_articles,
+            newsletter.json_data,
             api_key=settings.anthropic_api_key,
             model=settings.claude_model,
             base_url=settings.base_url,

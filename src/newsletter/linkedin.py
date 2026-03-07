@@ -1,10 +1,10 @@
+import json
 import logging
 
 import anthropic
 
 from .config import settings
 from .db import log_api_usage
-from .models import Article
 
 logger = logging.getLogger(__name__)
 
@@ -44,18 +44,27 @@ Reglas:
 
 
 def generate_linkedin_post(
-    articles: list[Article],
+    newsletter_json: str,
     api_key: str,
     model: str,
     base_url: str = "",
     db_path: str = "",
     run_id: str = "",
 ) -> str:
-    """Generate a LinkedIn post summarizing the newsletter's top articles."""
-    summaries = []
-    for a in articles[:10]:
-        summaries.append(f"- [{a.source}] {a.title}: {a.summary}")
-    articles_text = "\n".join(summaries)
+    """Generate a LinkedIn post from the final newsletter JSON (Signal + Radar sections)."""
+    try:
+        data = json.loads(newsletter_json) if isinstance(newsletter_json, str) else newsletter_json
+    except (json.JSONDecodeError, TypeError):
+        data = {}
+
+    subject_line = data.get("subject_line", "")
+    signal = data.get("signal", {})
+    signal_headline = signal.get("headline", "")
+    signal_what_happened = signal.get("what_happened", "")
+    radar_items = data.get("radar", [])
+    radar_takeaways = "\n".join(
+        f"- {item.get('takeaway', '')}" for item in radar_items if item.get("takeaway")
+    )
 
     subscribe_url = base_url.rstrip("/") if base_url else "https://knowledgeinchain.com"
 
@@ -72,7 +81,11 @@ def generate_linkedin_post(
                     "role": "user",
                     "content": (
                         f"Subscribe URL: {subscribe_url}\n\n"
-                        f"This week's top articles:\n{articles_text}\n\n"
+                        f"Newsletter subject: {subject_line}\n\n"
+                        f"SIGNAL (main story):\n"
+                        f"Headline: {signal_headline}\n"
+                        f"What happened: {signal_what_happened}\n\n"
+                        f"RADAR — quick takes this week:\n{radar_takeaways}\n\n"
                         "Write the LinkedIn post."
                     ),
                 }

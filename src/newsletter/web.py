@@ -34,6 +34,7 @@ from .db import (
     get_latest_email_status,
     get_linkedin_post,
     get_newsletter_by_id,
+    get_pending_newsletter,
     get_pending_newsletters,
     get_pipeline_runs,
     get_sent_newsletters,
@@ -141,6 +142,22 @@ async def unsubscribe(email: str = ""):
 
     template = jinja_env.get_template("unsubscribe.html")
     return template.render(email=email, removed=removed)
+
+
+@app.get("/newsletter/pending/latest")
+async def newsletter_pending_latest():
+    """Public endpoint: returns the latest pending newsletter for LinkedIn post generation."""
+    newsletter = get_pending_newsletter(settings.database_path)
+    if newsletter is None:
+        return JSONResponse(status_code=404, content={"error": "No pending newsletter found"})
+    json_data = json.loads(newsletter["json_data"]) if newsletter.get("json_data") else {}
+    return {
+        "id": newsletter["id"],
+        "subject": newsletter["subject"],
+        "created_at": newsletter["created_at"],
+        "linkedin_post": newsletter.get("linkedin_post", ""),
+        "json_data": json_data,
+    }
 
 
 @app.get("/newsletter/{newsletter_id}", response_class=HTMLResponse)
